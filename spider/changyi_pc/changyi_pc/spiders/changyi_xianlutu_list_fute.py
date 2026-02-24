@@ -137,30 +137,76 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             method='GET',
             headers=self.headers,
             cookies=self.cookies,
-            callback=self.parse_caidan_show_url,
+            callback=self.parse_tree,
             meta={'item': item},
             dont_filter=True,
         )
 
-    def parse_caidan_show_url(self, response):
-        item = copy.deepcopy(response.meta['item'])
-        url = re.search('url=(.+?)>', response.text).group(1)
-        # https://www.car388.com/system/second/tree_xians_ok.php?tid=24713&pinpai_id=58
-        next_url = urljoin(response.url, url)
-        # next_url = 'https://www.car388.com/system/second/tree_xians_ok.php?tid=24664&pinpai_id=58'
-        if 'tree_xians_ok' in next_url:
-            callback = self.parse_tree_xians_ok
-        elif 'xlt.htm' in next_url:
-            callback = self.parse_xlt
-        yield scrapy.Request(
-            url=next_url,
-            method='GET',
-            headers=self.headers,
-            cookies=self.cookies,
-            callback=callback,
-            meta={'item': item},
-            dont_filter=True,
-        )
+    def parse_tree(self, response):
+
+
+        url = re.search('url=(.+?)>', response.text)
+        if url:
+            url = url.group(1)
+            item = copy.deepcopy(response.meta['item'])
+            # https://www.car388.com/system/second/tree_xians_ok.php?tid=24713&pinpai_id=58
+            next_url = urljoin(response.url, url)
+            # next_url = 'https://www.car388.com/system/second/tree_xians_ok.php?tid=24664&pinpai_id=58'
+            if 'tree_xians_ok' in next_url:
+                # 福特
+                callback = self.parse_tree_xians_ok
+            elif 'xlt.htm' in next_url:
+                # 别克
+                callback = self.parse_xlt
+            yield scrapy.Request(
+                url=next_url,
+                method='GET',
+                headers=self.headers,
+                cookies=self.cookies,
+                callback=callback,
+                meta={'item': item},
+                dont_filter=True,
+            )
+        else:
+            #         雪佛兰
+            tables = response.xpath('//ul[@id="containerul"]/table[.//a]')
+            for index, table in enumerate(tables, 1):
+                item = copy.deepcopy(response.meta['item'])
+                title = table.xpath('.//font')[0].xpath('./text()').get().strip()
+                item['title_level_1'] = title
+                item['index_1'] = index
+                next_url = table.xpath('.//a[@href]/@href').get()
+                next_url = urljoin(response.url, next_url)
+                # https://www.car388.com/system/second/zi_lei_list.php?zimu_id=92&zhumu_id=3&che_nian_id=287&che_id=185
+                yield scrapy.Request(
+                    url=next_url,
+                    method='GET',
+                    headers=self.headers,
+                    cookies=self.cookies,
+                    callback=self.parse_zi_lei_list,
+                    meta={'item': item, 'level':2},
+                    dont_filter=True,
+                )
+
+    def parse_zi_lei_list(self, response):
+        tables = response.xpath('//a[text()="查看信息"]/ancestor::table[1]')
+        for index, table in enumerate(tables, 1):
+            item = copy.deepcopy(response.meta['item'])
+            level = response.meta['level']
+            a = table.xpath('.//a')[0]
+            title = a.xpath('./font/text()').get().strip()
+            item[f'title_level_{level}'] = title
+            item[f'index_{level}'] = index
+            next_url = a.xpath('./@href').get()
+            next_url = urljoin(response.url, next_url)
+            # https://www.car388.com/system/second/shows.php?page=1&ziliao_id=22619&zimu_id=92&zhumu_id=3&che_nian_id=287&che_id=185
+            next_url = next_url.replace('shows.php', 'ziliao_message_show_fen.php')
+            # https://www.car388.com/system/second/ziliao_message_show_fen.php?ziliao_id=22619&zimu_id=92&zhumu_id=3&che_nian_id=287&che_id=185&page=1
+            item['filepath'] = next_url
+            print(item)
+
+
+
 
     def parse_xlt(self, response):
         lis = response.xpath('//ul[@id="containerul"]/li')
