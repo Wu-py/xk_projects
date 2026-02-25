@@ -1,7 +1,9 @@
+import copy
 import re
 import urllib
 import scrapy
 
+from spider.changyi_pc.changyi_pc.items import ChangyiPcListItem
 
 
 class ChangyiDianluLisSpider(scrapy.Spider):
@@ -44,20 +46,22 @@ class ChangyiDianluLisSpider(scrapy.Spider):
 
     def start_requests(self):
         pp_id = '242'
+        item = ChangyiPcListItem(pp_id)
+        item['pp_id'] = pp_id
         yield scrapy.Request(
             url=self.start_urls[0] + f'?pinpai_id={pp_id}',
             method='GET',
             headers=self.headers,
             cookies=self.cookies,
             callback=self.parse_chex_list,
-            meta={'item':{'pp_id':pp_id}},
+            meta={'item':item},
         )
 
     def parse_chex_list(self, response):
         # print(response.text)
-        meta = response.meta
         li_list = response.xpath("//li[@class='main7li']")
         for li in li_list:
+            item = copy.deepcopy(response.meta['item'])
             chex_name = li.xpath('.//center/text()').extract_first()
             chex_href = li.xpath('./a/@href').extract_first()
             chex_id = re.search('chex_id=(\d+)', chex_href).group(1)
@@ -66,7 +70,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             #     continue
             # print(chex_name, chex_id)
 
-            meta['item']['chex_name'] = chex_name
+            item['chex_name'] = chex_name
             # https://www.car388.com/system/chex_ziliao_che.php?pinpai_id=242&chex_id=3706&pinpai_name&chex_name=阿维塔06
             yield scrapy.Request(
                 url=chex_href,
@@ -74,18 +78,18 @@ class ChangyiDianluLisSpider(scrapy.Spider):
                 headers=self.headers,
                 cookies=self.cookies,
                 callback=self.parse_year_list,
-                meta=meta,
+                meta={'item': item},
             )
 
     def parse_year_list(self, response):
-        meta = response.meta
         tr_list = response.xpath("//tr[.//a]")
         for tr in tr_list:
+            item = copy.deepcopy(response.meta['item'])
             year = tr.xpath('.//div[@class="STYLE6"]/font/text()').extract_first()
             year = re.search('(\d+)', year).group(1)
             year_href = tr.xpath('.//a/@href').extract_first()
             year_id = re.search('s4=(\d+)', year_href).group(1)
-            meta['item']['year'] = year
+            item['year'] = year
             next_url = f'https://www.car388.com/system/chex_ziliao_s.php?s4={year_id}&c_pinpai='
             yield scrapy.Request(
                 url=next_url,
@@ -93,14 +97,14 @@ class ChangyiDianluLisSpider(scrapy.Spider):
                 headers=self.headers,
                 cookies=self.cookies,
                 callback=self.parse_ziliao_list,
-                meta=meta,
+                meta={'item': item},
                 dont_filter=True,
             )
             # break
 
     def parse_ziliao_list(self, response):
         # print(response.text)
-        meta = response.meta
+        item = copy.deepcopy(response.meta['item'])
         ziliao_href = response.xpath('//span[@class="ziliao_name"]/a[contains(text(), "专修手册")]/@href').extract_first()
         zid = re.search('zid=(\d+)', ziliao_href).group(1)
         next_url = f'https://www.car388.com/system/second/tree.php?pinpai_id={meta["item"]["pp_id"]}&zid={zid}&azx=jili&jilid='
@@ -110,12 +114,12 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             headers=self.headers,
             cookies=self.cookies,
             callback=self.parse_get_caidan_show_url,
-            meta=meta,
+            meta={'item': item},
             dont_filter=True,
         )
 
     def parse_get_caidan_show_url(self, response):
-        meta = response.meta
+        item = copy.deepcopy(response.meta['item'])
         # https://www.car388.com/newhd0/system-aweita-20262/caidan_show_url.php?pinpai_id=242&che_nian_id=28062
         next_url = re.search('url=(.+?)>', response.text).group(1)
         print(next_url)
@@ -125,12 +129,12 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             headers=self.headers,
             cookies=self.cookies,
             callback=self.parse_caidan_show_url,
-            meta=meta,
+            meta={'item': item},
             dont_filter=True,
         )
 
     def parse_caidan_show_url(self, response):
-        meta = response.meta
+        item = copy.deepcopy(response.meta['item'])
         url = re.search('url=(.+?)>', response.text).group(1)
         # https://www.car388.com/newhd0/system-aweita-20262/07.php
         next_url = response.request.url.rsplit('/', 1)[0] + '/' + url
@@ -140,12 +144,12 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             headers=self.headers,
             cookies=self.cookies,
             callback=self.parse_caidan,
-            meta=meta,
+            meta={'item': item},
             dont_filter=True,
         )
 
     def parse_caidan(self, response):
-        meta = response.meta
+        item = copy.deepcopy(response.meta['item'])
         dianlu_html = re.search(r"d.add\(.+?','(.+?dianlu.html)'\)", response.text).group(1)
         print(dianlu_html)
         # https://www.car388.com/newhd0/system-aweita-20262/11-dianlu.html
@@ -156,16 +160,16 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             headers=self.headers,
             cookies=self.cookies,
             callback=self.parse_circuit_manual_data_url,
-            meta=meta,
+            meta={'item': item},
             dont_filter=True,
         )
 
     def parse_circuit_manual_data_url(self, response):
-        meta = response.meta
+        item = copy.deepcopy(response.meta['item'])
         circuit_manual_data = re.search('jsonUrl: "\.(/assets/data/circuit_manual_.+?\.json)"', response.text).group(1)
         # https://www.car388.com/newhd0/system-aweita-20262/assets/data/circuit_manual_P2025060279.json
         manual_code = re.search('circuit_manual_(.+)', circuit_manual_data).group(1)
-        meta['item']['manual_code'] = manual_code
+        # item['manual_code'] = manual_code
         next_url = response.request.url.rsplit('/', 1)[0] + circuit_manual_data
         yield scrapy.Request(
             url=next_url,
@@ -173,13 +177,12 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             headers=self.headers,
             cookies=self.cookies,
             callback=self.parse_circuit_manual_data,
-            meta=meta,
+            meta={'item': item},
             dont_filter=True,
         )
 
     def parse_circuit_manual_data(self, response):
-        meta = response.meta
-        base_item = meta['item']  # 原始模板
+        base_item = copy.deepcopy(response.meta['item'])  # 原始模板
 
         for i in response.json():
             # 递归解析，获取所有叶子节点对应的完整 item

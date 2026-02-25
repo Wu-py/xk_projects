@@ -6,6 +6,7 @@ from urllib.parse import urlencode, urlparse, unquote
 
 import scrapy
 
+from spider.changyi_pc.changyi_pc.items import ChangyiPcListItem
 
 
 class ChangyiDianluLisSpider(scrapy.Spider):
@@ -71,14 +72,15 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             "Referer": "https://www.car388.com/system/pC-2026/html/zlk.php?pinpai_id=39",
             "Accept-Language": "zh-CN"
         }
-
+        item = ChangyiPcListItem()
+        item['pp_id'] = pp_id
         yield scrapy.Request(
             url='https://www.car388.com/system/pC-2026/html/chex_list.php?' + urllib.parse.urlencode(params),
             method='GET',
             headers=headers,
             cookies=self.cookies,
             callback=self.parse,
-            meta={'item':{'pp_id':pp_id}},
+            meta={'item': item},
         )
 
     def parse(self, response):

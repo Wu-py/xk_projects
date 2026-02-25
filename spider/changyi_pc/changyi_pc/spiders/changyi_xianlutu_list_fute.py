@@ -7,6 +7,8 @@ import requests
 import scrapy
 from twisted.web.http import urlparse
 
+from spider.changyi_pc.changyi_pc.items import ChangyiPcListItem
+
 
 class ChangyiDianluLisSpider(scrapy.Spider):
     name = "changyi_xianlutu_list_fute"
@@ -45,14 +47,18 @@ class ChangyiDianluLisSpider(scrapy.Spider):
     def start_requests(self):
         # pp_id = '58'
         # pp_id = '63'
-        pp_id = '64'
+        # pp_id = '64'
+        # pp_id = '10'
+        pp_id = '62'
+        item = ChangyiPcListItem()
+        item['pp_id'] = pp_id
         yield scrapy.Request(
             url=self.start_urls[0] + f'?pinpai_id={pp_id}',
             method='GET',
             headers=self.headers,
             cookies=self.cookies,
             callback=self.parse_chex_list,
-            meta={'item':{'pp_id':pp_id}},
+            meta={'item':item},
         )
 
     def parse_chex_list(self, response):
@@ -91,6 +97,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             year_href = tr.xpath('.//a/@href').extract_first()
             year_id = re.search('s4=(\d+)', year_href).group(1)
             item['year'] = year
+            print(item)
             next_url = f'https://www.car388.com/system/chex_ziliao_s.php?s4={year_id}&c_pinpai='
             # print(next_url)
             yield scrapy.Request(
@@ -204,9 +211,6 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             # https://www.car388.com/system/second/ziliao_message_show_fen.php?ziliao_id=22619&zimu_id=92&zhumu_id=3&che_nian_id=287&che_id=185&page=1
             item['filepath'] = next_url
             print(item)
-
-
-
 
     def parse_xlt(self, response):
         lis = response.xpath('//ul[@id="containerul"]/li')
@@ -336,5 +340,4 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             else:
                 for index, sub_ul in enumerate(sub_uls, 1):
                     yield from ChangyiDianluLisSpider.parse_detail(sub_ul, base_item, level + 1, index)
-
 
