@@ -1,4 +1,6 @@
 # pipelines.py
+import hashlib
+
 import pymysql
 from pymysql.cursors import DictCursor
 from scrapy.exceptions import DropItem
@@ -38,24 +40,40 @@ class ChangyiPcPipeline:
         return pipeline
 
     def process_item(self, item, spider):
-        item = self._normalize_item(item)
+        item = self._normalize_item(item, spider)
+        if not self.table_name:
+            self.table_name = spider.table_name
         self.items_buffer.append(dict(item))
         if len(self.items_buffer) >= self.batch_size:
-            if not self.table_name:
-                self.table_name = spider.table_name
             self._flush_buffer()
         return item
 
-    def _normalize_item(self, item):
-        """将去重字段中的 None 转换为占位符"""
-        for field in self.unique_fields:
-            if field in item:
-                if item[field] is None:
-                    item[field] = self.NULL_PLACEHOLDER
-                # 如果是字符串，建议也去除首尾空格，防止 'url ' 和 'url' 被认为不同
-                elif isinstance(item[field], str):
-                    item[field] = item[field].strip()
+    def _normalize_item(self, item, spider):
+
+        if 'list' in spider.name:
+            """将去重字段中的 None 转换为占位符"""
+            for field in self.unique_fields:
+                if field in item:
+                    if item[field] is None:
+                        if field == 'year':
+                            item[field] = '__null__'
+                        else:
+                            item[field] = self.NULL_PLACEHOLDER
+                    # 如果是字符串，建议也去除首尾空格，防止 'url ' 和 'url' 被认为不同
+                    elif isinstance(item[field], str):
+                        item[field] = item[field].strip()
+        elif 'chex' in spider.name:
+            item['year'] = item['year'] if item['year'] else '__null__'
+            list_text = str(item['pp_id']) + item['chex_name'] + item['year']
+            list_key = self.get_md5_basic(list_text)
+            item['list_key'] = list_key
         return item
+
+    def get_md5_basic(self, text):
+        # 1. 字符串必须编码为 bytes (utf-8)
+        # 2. 计算 hash
+        # 3. 转换为十六进制字符串
+        return hashlib.md5(text.encode('utf-8')).hexdigest()
 
     def _flush_buffer(self):
         if not self.items_buffer:

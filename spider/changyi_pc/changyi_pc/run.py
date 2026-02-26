@@ -8,7 +8,9 @@ from scrapy.utils.project import get_project_settings
 # spider_name = 'changyi_dianlutu_lis_2'
 # spider_name = 'changyi_dianlutu_detail_2'
 # spider_name = 'changyi_xianlutu_list_fute'
-spider_name = 'changyi_xianlutu_detail_fute'
+# spider_name = 'changyi_xianlutu_detail_fute'
+# spider_name = 'changyi_chex_2'
+spider_name = 'changyi_list_2'
 
 # 获取Scrapy项目的配置信息
 settings = get_project_settings()

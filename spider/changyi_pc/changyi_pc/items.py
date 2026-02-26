@@ -25,3 +25,17 @@ class ChangyiPcListItem(scrapy.Item):
     index_5 = scrapy.Field()
     filepath = scrapy.Field()
     type = scrapy.Field()
+    list_key = scrapy.Field()
+
+class ChangyiChexItem(scrapy.Item):
+    # define the fields for your item here like:
+    pp_id = scrapy.Field()
+    pp_name = scrapy.Field()
+    series = scrapy.Field()
+    chex_name = scrapy.Field()
+    year = scrapy.Field()
+    list_type = scrapy.Field()
+    params = scrapy.Field()
+    note = scrapy.Field()
+    list_key = scrapy.Field()
+
