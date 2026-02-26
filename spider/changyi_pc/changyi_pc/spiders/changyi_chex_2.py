@@ -56,6 +56,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
 
         with self.connection.cursor() as cursor:
             cursor.execute("SELECT * from pp_table where list_type_2 = 1 and pp_id not in (select distinct pp_id from changyi_chex) limit 1")
+            # cursor.execute("SELECT * from pp_table where pp_name = 'MINI'")
             rows = cursor.fetchall()
             for i in rows:
                 pp_id = i['pp_id']
@@ -133,7 +134,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
                 callback=self.parse_2,
                 meta={'item':item},
             )
-            break
+            # break
 
     def parse_2(self, response):
         '''

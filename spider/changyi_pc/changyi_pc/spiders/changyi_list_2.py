@@ -55,7 +55,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
         self.cursor = self.connection.cursor()
 
         with self.connection.cursor() as cursor:
-            cursor.execute("SELECT * from changyi_chex where list_type = 2 and note is null and list_key not in (select distinct list_key from changyi_list)")
+            cursor.execute("SELECT * from changyi_chex where list_type = 2 and note is null and list_key not in (select distinct list_key from changyi_list) limit 3")
             rows = cursor.fetchall()
             for i in rows:
                 # print(i)
