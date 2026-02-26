@@ -10,11 +10,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 class ChangyiPcPipeline:
-    def __init__(self, db_pool):
+    def __init__(self, db_pool, db_params=None):
         self.db_pool = db_pool
+        self.db_params = db_params or {}  # 保存数据库连接参数供后续使用
         self.items_buffer = []
-        self.batch_size = 100  # 可通过 settings 配置
-        self.dedup_method = 'ignore'  # 可选: 'ignore', 'replace', 'query'
+        self.batch_size = 100
+        self.dedup_method = 'ignore'
         self.unique_fields = ['pp_id', 'chex_name', 'year', 'index_1', 'index_2', 'index_3', 'index_4', 'index_5']
         self.table_name = None
         self.NULL_PLACEHOLDER = 0
@@ -33,10 +34,9 @@ class ChangyiPcPipeline:
             'use_unicode': True,
         }
         db_pool = adbapi.ConnectionPool('pymysql', **db_params, autocommit=True)
-        pipeline = cls(db_pool)
+        pipeline = cls(db_pool, db_params)  # 传入 db_params
         pipeline.batch_size = settings.getint('MYSQL_BATCH_SIZE', 100)
         pipeline.dedup_method = settings.get('MYSQL_DEDUPLICATE_METHOD', 'ignore')
-        # pipeline.unique_fields = settings.getlist('MYSQL_UNIQUE_FIELDS', ['url'])
         return pipeline
 
     def process_item(self, item, spider):
@@ -132,7 +132,41 @@ class ChangyiPcPipeline:
     def _handle_error(self, failure):
         logger.error(f"数据库操作失败: {failure.getErrorMessage()}")
 
+    def _update_not_data_notes_sync(self, not_data_cars):
+        """同步更新无数据车辆的note字段为'无数据'"""
+        if not not_data_cars:
+            return
+
+        try:
+            # 使用保存的 db_params 创建新连接（避免访问 adbapi 私有属性）
+            conn_params = self.db_params.copy()
+            # 移除 adbapi 特有参数，避免 pymysql.connect 报错
+            conn_params.pop('cursorclass', None)
+            conn_params.pop('autocommit', None)
+
+            conn = pymysql.connect(**conn_params)
+            try:
+                with conn.cursor() as cursor:
+                    # 去重 list_key，避免重复更新
+                    unique_keys = list(set(not_data_cars))
+                    if unique_keys:
+                        placeholders = ', '.join(['%s'] * len(unique_keys))
+                        sql = f"UPDATE `changyi_chex` SET `note` = '无数据' WHERE `list_key` IN ({placeholders})"
+                        cursor.execute(sql, unique_keys)
+                        conn.commit()
+                        logger.info(f"成功更新 {cursor.rowcount} 条无数据记录的note字段")
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.error(f"更新无数据记录失败: {e}")
+
     def close_spider(self, spider):
         self._flush_buffer()
+        # 更新无数据的车辆记录：遍历 spider.not_data_cars，更新 note 字段
+        if hasattr(spider, 'not_data_cars') and spider.not_data_cars:
+            # 提取所有 list_key（假设 not_data_cars 是 list_key 的列表）
+            list_keys = [key for key in spider.not_data_cars if key]
+            if list_keys:
+                self._update_not_data_notes_sync(list_keys)
         self.db_pool.close()
 

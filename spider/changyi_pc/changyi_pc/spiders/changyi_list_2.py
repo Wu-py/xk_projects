@@ -18,7 +18,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
     name = "changyi_list_2"
     table_name = "changyi_list"
     start_urls = ["https://qx.car388.com/plugin.php?id=qssy_api:car"]
-
+    not_data_cars = []
     headers = {
         "Host": "qx.car388.com",
         "sec-ch-ua": "\"Not?A_Brand\";v=\"8\", \"Chromium\";v=\"108\"",
@@ -113,6 +113,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
                 )
         else:
             print(item, '无电路图数据' )
+            self.not_data_cars.append(item['list_key'])
 
     def parse_4(self, response):
         # print(response.text)
