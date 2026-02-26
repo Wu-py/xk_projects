@@ -8,7 +8,7 @@ from spider.changyi_pc.changyi_pc.items import ChangyiPcListItem
 
 class ChangyiDianluLisSpider(scrapy.Spider):
     name = "changyi_dianlutu_lis"
-
+    table_name = "changyi_list"
     start_urls = ["https://www.car388.com/system/PC-2026/html/chex_list.php"]
 
     headers = {
@@ -46,8 +46,10 @@ class ChangyiDianluLisSpider(scrapy.Spider):
 
     def start_requests(self):
         pp_id = '242'
+        pp_name = '阿维塔'
         item = ChangyiPcListItem(pp_id)
         item['pp_id'] = pp_id
+        item['pp_name'] = pp_name
         yield scrapy.Request(
             url=self.start_urls[0] + f'?pinpai_id={pp_id}',
             method='GET',
@@ -107,7 +109,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
         item = copy.deepcopy(response.meta['item'])
         ziliao_href = response.xpath('//span[@class="ziliao_name"]/a[contains(text(), "专修手册")]/@href').extract_first()
         zid = re.search('zid=(\d+)', ziliao_href).group(1)
-        next_url = f'https://www.car388.com/system/second/tree.php?pinpai_id={meta["item"]["pp_id"]}&zid={zid}&azx=jili&jilid='
+        next_url = f'https://www.car388.com/system/second/tree.php?pinpai_id={item["pp_id"]}&zid={zid}&azx=jili&jilid='
         yield scrapy.Request(
             url=next_url,
             method='GET',
@@ -122,7 +124,6 @@ class ChangyiDianluLisSpider(scrapy.Spider):
         item = copy.deepcopy(response.meta['item'])
         # https://www.car388.com/newhd0/system-aweita-20262/caidan_show_url.php?pinpai_id=242&che_nian_id=28062
         next_url = re.search('url=(.+?)>', response.text).group(1)
-        print(next_url)
         yield scrapy.Request(
             url=next_url,
             method='GET',
@@ -189,6 +190,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             for complete_item in self.parse_detail(i, base_item.copy()):
                 # print("Yielded item:", complete_item)
                 complete_item['filepath'] = response.request.url.rsplit('/data', 1)[0] + complete_item['filepath']
+                complete_item['type'] = '电路图'
                 yield complete_item  # 如果你在 Scrapy 中，这里可以 yield 给 pipeline
 
     @staticmethod

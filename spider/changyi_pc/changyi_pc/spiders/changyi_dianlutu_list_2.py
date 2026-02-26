@@ -14,7 +14,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
     劳斯莱斯
     '''
     name = "changyi_dianlutu_lis_2"
-
+    table_name = "changyi_list"
     start_urls = ["https://qx.car388.com/plugin.php?id=qssy_api:car"]
 
     headers = {
@@ -58,6 +58,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
         # pp_id = '35'
         # pp_id = '1'
         pp_id = '234'
+        pp_name = 'MINI'
         params = {
             "pinpai_id": pp_id
         }
@@ -74,6 +75,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
         }
         item = ChangyiPcListItem()
         item['pp_id'] = pp_id
+        item['pp_name'] = pp_name
         yield scrapy.Request(
             url='https://www.car388.com/system/pC-2026/html/chex_list.php?' + urllib.parse.urlencode(params),
             method='GET',
@@ -151,7 +153,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
         data_list = flatten_leaves(response.json()['data'])
         for i in data_list:
             item = copy.deepcopy(response.meta['item'])
-            item['che_name'] = i['model']
+            item['chex_name'] = i['model']
             item['year'] = i['model_year']
             data = {
                 "ac": "car_info",
@@ -243,8 +245,9 @@ class ChangyiDianluLisSpider(scrapy.Spider):
                     item['title_level_1'] = children1['name']
                     item['title_level_2'] = children2['name']
                     item['filepath'] = filepath
-                    item['index1'] = index1
-                    item['index2'] = index2
+                    item['index_1'] = index1
+                    item['index_2'] = index2
+                    item['type'] = '电路图'
                     index2 += 1
                     yield item
                 index1 += 1
@@ -365,6 +368,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
         new_url = 'https://qx.car388.com/' + url
         item['filepath'] = new_url
         print(item)
+        item['type'] = '电路图'
         yield item
 
 

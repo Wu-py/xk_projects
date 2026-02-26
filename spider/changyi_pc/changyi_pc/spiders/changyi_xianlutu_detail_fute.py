@@ -40,7 +40,9 @@ class ChangyiDianluLisSpider(scrapy.Spider):
 
     def start_requests(self):
         yield scrapy.Request(
-            url="https://www.car388.com/system/second/showpic_xiang.php?lei=1&page=1&aid=24713&max=619",
+            # url="https://www.car388.com/system/second/showpic_xiang.php?lei=1&page=1&aid=24713&max=619",
+            # url="https://www.car388.com/system/1994-buick-Park-avenue/showpic_xiang.php?&page=1",
+            url="https://www.car388.com/system/second/showpic_xiang.php?lei=8W-01&page=15&aid=15473&max=16",
             method='GET',
             headers=self.headers,
             cookies=self.cookies,
@@ -107,7 +109,6 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             # 如需处理背景图等，可加：
             # ('*', 'href'),  # 注意：style 中的 url() 需要正则处理，较复杂
             ('*', 'src'),  # 注意：style 中的 url() 需要正则处理，较复杂
-            ('div', 'data-page-url'),  # 注意：style 中的 url() 需要正则处理，较复杂
         ]
 
         for tag, attr in url_attributes:

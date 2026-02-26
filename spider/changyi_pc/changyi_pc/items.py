@@ -9,6 +9,8 @@ import scrapy
 class ChangyiPcListItem(scrapy.Item):
     # define the fields for your item here like:
     pp_id = scrapy.Field()
+    pp_name = scrapy.Field()
+    series = scrapy.Field()
     chex_name = scrapy.Field()
     year = scrapy.Field()
     title_level_1 = scrapy.Field()
@@ -22,3 +24,4 @@ class ChangyiPcListItem(scrapy.Item):
     title_level_5 = scrapy.Field()
     index_5 = scrapy.Field()
     filepath = scrapy.Field()
+    type = scrapy.Field()

@@ -12,7 +12,7 @@ from spider.changyi_pc.changyi_pc.items import ChangyiPcListItem
 
 class ChangyiDianluLisSpider(scrapy.Spider):
     name = "changyi_xianlutu_list_fute"
-
+    table_name = "changyi_list"
     start_urls = ["https://www.car388.com/system/PC-2026/html/chex_list.php"]
 
     headers = {
@@ -50,8 +50,10 @@ class ChangyiDianluLisSpider(scrapy.Spider):
         # pp_id = '64'
         # pp_id = '10'
         pp_id = '62'
+        pp_name = 'Chrysler(克莱斯勒)'
         item = ChangyiPcListItem()
         item['pp_id'] = pp_id
+        item['pp_name'] = pp_name
         yield scrapy.Request(
             url=self.start_urls[0] + f'?pinpai_id={pp_id}',
             method='GET',
@@ -317,6 +319,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
                     except Exception as e:
                         print(i, filepath, e)
                 i['filepath'] = filepath.replace('showpic', 'showpic_xiang') + f'&max={max_page}'
+                i['type'] = '线路图'
                 print(i)
 
     @staticmethod

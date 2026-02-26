@@ -25,7 +25,17 @@ REDIRECT_ENABLED = False
 # Concurrency and throttling settings
 #CONCURRENT_REQUESTS = 16
 CONCURRENT_REQUESTS_PER_DOMAIN = 1
-DOWNLOAD_DELAY = 3
+DOWNLOAD_DELAY = 4
+
+MYSQL_HOST = 'localhost'
+MYSQL_PORT = 3306
+MYSQL_DB = 'spider'
+MYSQL_USER = 'root'
+MYSQL_PASSWORD = 'a12345'
+MYSQL_CHARSET = 'utf8mb4'
+
+MYSQL_BATCH_SIZE = 100
+MYSQL_DEDUPLICATE_METHOD = 'ignore'  # 可选: 'ignore', 'replace', 'query'
 
 # Disable cookies (enabled by default)
 #COOKIES_ENABLED = False
@@ -59,9 +69,9 @@ DOWNLOADER_MIDDLEWARES = {
 
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
-#ITEM_PIPELINES = {
-#    "changyi_pc.pipelines.ChangyiPcPipeline": 300,
-#}
+ITEM_PIPELINES = {
+   "changyi_pc.pipelines.ChangyiPcPipeline": 300,
+}
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See https://docs.scrapy.org/en/latest/topics/autothrottle.html
