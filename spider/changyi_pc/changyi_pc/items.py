@@ -39,3 +39,8 @@ class ChangyiChexItem(scrapy.Item):
     note = scrapy.Field()
     list_key = scrapy.Field()
 
+class ChangyiDetailItem(scrapy.Item):
+    # define the fields for your item here like:
+    filepath = scrapy.Field()
+    html = scrapy.Field()
+

@@ -2,14 +2,17 @@ import re
 import urllib
 from urllib.parse import urljoin
 
+import pymysql
 import scrapy
 from lxml import etree
 
+from spider.changyi_pc.changyi_pc.items import ChangyiDetailItem
 
 
 class ChangyiDianluLisSpider(scrapy.Spider):
-    name = "changyi_dianlutu_detail_2"
-
+    name = "changyi_detail_2"
+    table_name = "changyi_detail"
+    handle_httpstatus_list = [403]
     headers = {
         'Host': 'qx.car388.com',
         'Upgrade-Insecure-Requests': '1',
@@ -22,48 +25,63 @@ class ChangyiDianluLisSpider(scrapy.Spider):
         'Accept-Language': 'zh-CN',
     }
     cookies = {
-        "53gid2": "17258468377003",
-        "53gid1": "17258468377003",
-        "visitor_type": "old",
-        "53gid0": "17258468377003",
-        "53uvid": "1",
-        "onliner_zdfq72099103": "0",
-        "_UUID_UV": "1769479948471149",
-        "53revisit": "1769479966488",
+        "qx666_2132_saltkey": "y9cti5LC",
+        "qx666_2132_lastvisit": "1769496164",
         "__utmz": "139703073.1769500252.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none)",
-        "Hm_lvt_decbe98a86b71fe465bb5c6a3983c4e8": "1769501690",
         "__utma": "139703073.1164173733.1769500252.1769502953.1770374162.3",
-        "PHPSESSID": "fsf7c0ipvr3enmhdbbknof6al4",
-        "53kf_72099103_from_host": "www.car388.com",
-        "uuid_53kf_72099103": "d1d198ac44624ee423fabdfb4ea9fe63",
-        "53kf_72099103_land_page": "https%253A%252F%252Fwww.car388.com%252Fsystem%252FPC-2026%252Findex.php",
-        "kf_72099103_land_page_ok": "1",
-        "53kf_72099103_keyword": "https%3A%2F%2Fqx.car388.com%2F"
+        "PHPSESSID": "vaii290esqsv38ocn8kpoc61l5",
+        "qx666_2132_sid": "dPBvBv"
     }
 
     def start_requests(self):
-        yield scrapy.Request(
-            url="https://qx.car388.com/CarHtml/Volvo/diag/39250552/index.html?",
-            method='GET',
-            headers=self.headers,
-            cookies=self.cookies,
-            callback=self.parse,
+        self.connection = pymysql.connect(
+            host=self.settings.get('MYSQL_HOST'),
+            user=self.settings.get('MYSQL_USER'),
+            password=self.settings.get('MYSQL_PASSWORD'),
+            database=self.settings.get('MYSQL_DB'),
+            port=self.settings.get('MYSQL_PORT'),
+            charset='utf8mb4',  # 设置编码
+            cursorclass=pymysql.cursors.DictCursor  # 返回字典格式的行
         )
+        self.cursor = self.connection.cursor()
+
+        with self.connection.cursor() as cursor:
+            cursor.execute("SELECT * from changyi_list where filepath not in (select distinct filepath from changyi_detail) limit 10")
+            rows = cursor.fetchall()
+            for i in rows:
+                item = ChangyiDetailItem()
+                item['filepath'] = i['filepath']
+                yield scrapy.Request(
+                    # url="https://qx.car388.com/CarHtml/Volvo/diag/39250552/index.html?",
+                    # url="https://qx.car388.com/CarHtml/ISTA/html/2000011314556.html",
+                    url=item['filepath'],
+                    method='GET',
+                    headers=self.headers,
+                    cookies=self.cookies,
+                    callback=self.parse,
+                    meta={'item': item}
+                )
 
     def parse(self, response):
         # 将 response 转为可修改的 lxml 文档
         # print(response.text)
-        parser = etree.HTMLParser()
-        tree = etree.fromstring(response.text, parser)
+        item = response.meta['item']
+        if response.status == 200:
+            parser = etree.HTMLParser()
+            tree = etree.fromstring(response.text, parser)
 
-        for script in tree.xpath('//script'):
-            script.getparent().remove(script)
+            for script in tree.xpath('//script'):
+                script.getparent().remove(script)
 
-        ChangyiDianluLisSpider.absolutize_urls(tree, response.url)
+            ChangyiDianluLisSpider.absolutize_urls(tree, response.url)
 
-        # 获取修改后的 HTML 字符串
-        new_html = etree.tostring(tree, encoding='unicode', method='html')
-        print(new_html)
+            # 获取修改后的 HTML 字符串
+            new_html = etree.tostring(tree, encoding='unicode', method='html')
+            item['html'] = new_html
+            yield item
+        else:
+            item['html'] = response.status
+            yield item
 
     @staticmethod
     def absolutize_urls(tree, base_url):
@@ -77,16 +95,6 @@ class ChangyiDianluLisSpider(scrapy.Spider):
         """
         # 定义需要处理的 (标签名, 属性名) 列表
         url_attributes = [
-            # ('a', 'href'),
-            # ('link', 'href'),
-            # ('img', 'src'),
-            # ('script', 'src'),
-            # ('iframe', 'src'),
-            # ('video', 'src'),
-            # ('audio', 'src'),
-            # ('source', 'src'),
-            # ('track', 'src'),
-            # 如需处理背景图等，可加：
             ('*', 'href'),  # 注意：style 中的 url() 需要正则处理，较复杂
             ('*', 'src'),  # 注意：style 中的 url() 需要正则处理，较复杂
             ('div', 'data-page-url'),  # 注意：style 中的 url() 需要正则处理，较复杂
@@ -102,12 +110,4 @@ class ChangyiDianluLisSpider(scrapy.Spider):
                     # 补全为绝对 URL
                     absolute_url = urljoin(base_url, current_value)
                     elem.set(attr, absolute_url)
-
-        # 可选：处理任意标签上的 data-src 或 data-url（取消注释即可启用）
-        # for attr_name in ['data-src', 'data-url']:
-        #     for elem in tree.xpath(f'//*[@{attr_name}]'):
-        #         val = elem.get(attr_name)
-        #         if val and not val.startswith(('http://', 'https://', 'mailto:', 'tel:', '#', 'javascript:')):
-        #             elem.set(attr_name, urljoin(base_url, val))
-
 
