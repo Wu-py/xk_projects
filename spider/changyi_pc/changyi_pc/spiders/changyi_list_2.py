@@ -33,14 +33,8 @@ class ChangyiDianluLisSpider(scrapy.Spider):
         "Referer": "https://qx.car388.com/pinpai_list.php",
         "Accept-Language": "zh-CN"
     }
-    cookies = {
-        "qx666_2132_saltkey": "y9cti5LC",
-        "qx666_2132_lastvisit": "1769496164",
-        "__utmz": "139703073.1769500252.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none)",
-        "__utma": "139703073.1164173733.1769500252.1769502953.1770374162.3",
-        "PHPSESSID": "vaii290esqsv38ocn8kpoc61l5",
-        "qx666_2132_sid": "dPBvBv"
-    }
+    # cookies = {'_UUID_UV': '1769479948471149', '53gid2': '17258468377003', '53revisit': '1769479966488', '__utmz': '139703073.1769500252.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none)', '__utma': '139703073.1164173733.1769500252.1769502953.1770374162.3', 'Hm_lvt_decbe98a86b71fe465bb5c6a3983c4e8': '1769501690,1772084854', 'PHPSESSID': '9oesh4gsd3j8ikas9c7bbpe2f1'}
+
 
     def start_requests(self):
         self.connection = pymysql.connect(
@@ -55,7 +49,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
         self.cursor = self.connection.cursor()
 
         with self.connection.cursor() as cursor:
-            cursor.execute("SELECT * from changyi_chex where list_type = 2 and note is null and list_key not in (select distinct list_key from changyi_list) limit 3")
+            cursor.execute("SELECT * from changyi_chex where list_type = 2 and note is null and list_key not in (select distinct list_key from changyi_list) limit 1")
             rows = cursor.fetchall()
             for i in rows:
                 # print(i)
@@ -75,7 +69,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
                     url=self.start_urls[0],
                     method='POST',
                     headers=self.headers,
-                    cookies=self.cookies,
+                    # cookies=self.cookies,
                     formdata=data,
                     callback=self.parse_3,
                     meta={'item': item},
@@ -106,7 +100,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
                     url=self.start_urls[0],
                     method='POST',
                     headers=self.headers,
-                    cookies=self.cookies,
+                    # cookies=self.cookies,
                     formdata=data,
                     callback=self.parse_4,
                     meta={'item': item},
@@ -128,7 +122,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
                 url=self.start_urls[0],
                 method='POST',
                 headers=self.headers,
-                cookies=self.cookies,
+                # cookies=self.cookies,
                 formdata=data,
                 callback=self.parse_5,
                 meta={'item': item},
@@ -186,7 +180,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
                     url=self.start_urls[0],
                     method='POST',
                     headers=self.headers,
-                    cookies=self.cookies,
+                    # cookies=self.cookies,
                     formdata=data,
                     callback=self.parse_6 if str(table_type) != '3' else self.parse_5_2,
                     meta={'item': item, 'level': level},
@@ -223,7 +217,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
                 url=self.start_urls[0],
                 method='POST',
                 headers=self.headers,
-                cookies=self.cookies,
+                # cookies=self.cookies,
                 formdata=data,
                 callback=self.parse_6,
                 meta={'item': item, 'level': level},
@@ -259,7 +253,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
                 url=self.start_urls[0],
                 method='POST',
                 headers=self.headers,
-                cookies=self.cookies,
+                # cookies=self.cookies,
                 formdata=data,
                 callback=self.parse_7,
                 meta={'item': item},
@@ -274,7 +268,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
         :return:
         '''
         # print(response.meta['item'])
-        # print(response.text)
+        print(response.text)
         item = copy.deepcopy(response.meta['item'])
         url = response.json()['data']['url'].split('#')[0]
         new_url = 'https://qx.car388.com/' + url

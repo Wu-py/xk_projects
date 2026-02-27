@@ -26,7 +26,7 @@ REDIRECT_ENABLED = False
 CONCURRENT_REQUESTS = 1
 DEPTH_PRIORITY = -1
 CONCURRENT_REQUESTS_PER_DOMAIN = 1
-DOWNLOAD_DELAY = 4
+DOWNLOAD_DELAY = 5
 
 MYSQL_HOST = 'localhost'
 MYSQL_PORT = 3306
@@ -59,7 +59,7 @@ MYSQL_DEDUPLICATE_METHOD = 'ignore'  # 可选: 'ignore', 'replace', 'query'
 # Enable or disable downloader middlewares
 # See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
 DOWNLOADER_MIDDLEWARES = {
-   "changyi_pc.middlewares.AccountCookieMiddleware": 543,
+   "changyi_pc.middlewares.AccountCookieMiddleware": 500,
    "changyi_pc.middlewares.ChangyiPcDownloaderMiddleware": 543,
 }
 

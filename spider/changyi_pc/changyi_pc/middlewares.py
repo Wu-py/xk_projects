@@ -181,6 +181,14 @@ class ChangyiPcDownloaderMiddleware:
             raise IgnoreRequest(str(request.body))
 
 
+    def process_response(self, request, response, spider):
+        if '您访问频率过高' in response.text:
+            accout_name = request.meta['account_name']
+            spider.crawler.engine.close_spider(spider, f'账号访问频率过高：{accout_name}')
+        return response
+
+
+
     def get_last_route_with_ext(self, url, method='get'):
         try:
 
