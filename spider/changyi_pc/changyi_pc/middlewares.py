@@ -11,6 +11,7 @@ from scrapy import signals
 from itemadapter import ItemAdapter
 from scrapy.exceptions import IgnoreRequest
 from scrapy.middleware import logger
+from urllib.parse import urlparse, unquote
 
 from interface_count import get_interface_count, increment_interface_count, init_file
 
@@ -36,16 +37,15 @@ class ChangyiPcDownloaderMiddleware:
             raise IgnoreRequest(str(request.body))
 
     def process_response(self, request, response, spider):
-        if '该账号已在其它地方登录' in response.text or '会话过期' in response.text or '账号已被封禁' in response.text:
+        if '请登录后使用' in response.text:
             interface = self.get_last_route_with_ext(request.url, request.method)
             print(f'接口:{interface}')
-            spider.crawler.engine.close_spider(spider, '账号异常')
+            spider.crawler.engine.close_spider(spider, '需重新登录')
+            raise IgnoreRequest("Login expired")
         return response
-
 
     def get_last_route_with_ext(self, url, method='get'):
         try:
-            from urllib.parse import urlparse, unquote
 
             # 1. 解析URL，获取path和query部分
             parsed = urlparse(url)
