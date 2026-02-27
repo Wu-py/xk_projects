@@ -24,14 +24,15 @@ class ChangyiDianluLisSpider(scrapy.Spider):
         'Referer': 'https://qx.car388.com/plugin.php?id=qssy_api&ac=carview&url=Q2FySHRtbC9JU1RBL2h0bWwvMjAwMDAxMTMxNDU1Ni5odG1s&tipps=&Height=760&table_link=21729&table_name=10&language=zh-Hans&type=app&title=[FUB]%20LIN%20%E6%80%BB%E7%BA%BF%E4%B8%8A%E7%9A%84%E8%AF%8A%E6%96%ADV.12',
         'Accept-Language': 'zh-CN',
     }
-    cookies = {
-        "qx666_2132_saltkey": "y9cti5LC",
-        "qx666_2132_lastvisit": "1769496164",
-        "__utmz": "139703073.1769500252.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none)",
-        "__utma": "139703073.1164173733.1769500252.1769502953.1770374162.3",
-        "PHPSESSID": "vaii290esqsv38ocn8kpoc61l5",
-        "qx666_2132_sid": "dPBvBv"
-    }
+    # cookies = {
+    #             "_UUID_UV": "1769479948471149",
+    #             "53gid2": "17258468377003",
+    #             "53revisit": "1769479966488",
+    #             "__utmz": "139703073.1769500252.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none)",
+    #             "__utma": "139703073.1164173733.1769500252.1769502953.1770374162.3",
+    #             "Hm_lvt_decbe98a86b71fe465bb5c6a3983c4e8": "1769501690,1772084854",
+    #             "PHPSESSID": "vmmmi4mn9lkebcip8r5bhrhop3"
+    #         }
 
     def start_requests(self):
         self.connection = pymysql.connect(
@@ -46,7 +47,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
         self.cursor = self.connection.cursor()
 
         with self.connection.cursor() as cursor:
-            cursor.execute("SELECT * from changyi_list where filepath not in (select distinct filepath from changyi_detail) limit 900")
+            cursor.execute("SELECT * from changyi_list where filepath not in (select distinct filepath from changyi_detail) limit 10")
             rows = cursor.fetchall()
             for i in rows:
                 item = ChangyiDetailItem()
@@ -57,7 +58,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
                     url=item['filepath'],
                     method='GET',
                     headers=self.headers,
-                    cookies=self.cookies,
+                    # cookies=self.cookies,
                     callback=self.parse,
                     meta={'item': item}
                 )

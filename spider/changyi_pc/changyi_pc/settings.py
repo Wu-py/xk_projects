@@ -59,6 +59,7 @@ MYSQL_DEDUPLICATE_METHOD = 'ignore'  # 可选: 'ignore', 'replace', 'query'
 # Enable or disable downloader middlewares
 # See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
 DOWNLOADER_MIDDLEWARES = {
+   "changyi_pc.middlewares.AccountCookieMiddleware": 543,
    "changyi_pc.middlewares.ChangyiPcDownloaderMiddleware": 543,
 }
 
