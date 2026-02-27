@@ -73,7 +73,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
 
             for script in tree.xpath('//script'):
                 script.getparent().remove(script)
-            for font in tree.xpath('(//body/font[following-sibling::Meta])[position() <= 2]'):
+            for font in tree.xpath('(//body/font[following-sibling::meta])[position() <= 2]'):
                 font.getparent().remove(font)
 
             ChangyiDianluLisSpider.absolutize_urls(tree, response.url)
