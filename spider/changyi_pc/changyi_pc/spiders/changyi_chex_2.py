@@ -33,14 +33,6 @@ class ChangyiDianluLisSpider(scrapy.Spider):
         "Referer": "https://qx.car388.com/pinpai_list.php",
         "Accept-Language": "zh-CN"
     }
-    cookies = {
-        "qx666_2132_saltkey": "y9cti5LC",
-        "qx666_2132_lastvisit": "1769496164",
-        "__utmz": "139703073.1769500252.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none)",
-        "__utma": "139703073.1164173733.1769500252.1769502953.1770374162.3",
-        "PHPSESSID": "vaii290esqsv38ocn8kpoc61l5",
-        "qx666_2132_sid": "dPBvBv"
-    }
 
     def start_requests(self):
         self.connection = pymysql.connect(
@@ -82,7 +74,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
                     url='https://www.car388.com/system/pC-2026/html/chex_list.php?' + urllib.parse.urlencode(params),
                     method='GET',
                     headers=headers,
-                    cookies=self.cookies,
+                    # cookies=self.cookies,
                     callback=self.parse,
                     meta={'item': item},
                 )
@@ -103,7 +95,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             url=self.start_urls[0],
             method='POST',
             headers=self.headers,
-            cookies=self.cookies,
+            # cookies=self.cookies,
             formdata=data,
             callback=self.parse_1,
             meta={'item':response.meta['item']},
@@ -129,7 +121,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
                 url=self.start_urls[0],
                 method='POST',
                 headers=self.headers,
-                cookies=self.cookies,
+                # cookies=self.cookies,
                 formdata=data,
                 callback=self.parse_2,
                 meta={'item':item},
