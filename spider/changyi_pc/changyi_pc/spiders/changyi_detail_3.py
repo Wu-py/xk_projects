@@ -122,7 +122,8 @@ class ChangyiDianluLisSpider(scrapy.Spider):
         """
         # 定义需要处理的 (标签名, 属性名) 列表
         url_attributes = [
-            ('img', 'src'),  # 注意：style 中的 url() 需要正则处理，较复杂
+            ('*', 'src'),  # 注意：style 中的 url() 需要正则处理，较复杂
+            ('link', 'href'),  # 注意：style 中的 url() 需要正则处理，较复杂
         ]
 
         for tag, attr in url_attributes:
