@@ -2,15 +2,17 @@ import re
 import urllib
 from urllib.parse import urljoin
 
+import pymysql
 import scrapy
 from lxml import etree
 from charset_normalizer import detect
 
+from spider.changyi_pc.changyi_pc.items import ChangyiDetailItem
 
 
 class ChangyiDianluLisSpider(scrapy.Spider):
     name = "changyi_detail_3"
-
+    table_name = 'changyi_detail'
     headers = {
         "Host": "www.car388.com",
         "Upgrade-Insecure-Requests": "1",
@@ -25,19 +27,47 @@ class ChangyiDianluLisSpider(scrapy.Spider):
     }
 
     def start_requests(self):
-        yield scrapy.Request(
-            # url="https://www.car388.com/system/second/showpic_xiang.php?lei=1&page=1&aid=24713&max=619",
-            # url="https://www.car388.com/system/1994-buick-Park-avenue/showpic_xiang.php?&page=1",
-            url="https://www.car388.com/system/second/showpic_xiang.php?lei=8W-01&page=15&aid=15473&max=16",
-            method='GET',
-            headers=self.headers,
-            # cookies=self.cookies,
-            callback=self.parse,
+        self.connection = pymysql.connect(
+            host=self.settings.get('MYSQL_HOST'),
+            user=self.settings.get('MYSQL_USER'),
+            password=self.settings.get('MYSQL_PASSWORD'),
+            database=self.settings.get('MYSQL_DB'),
+            port=self.settings.get('MYSQL_PORT'),
+            charset='utf8mb4',  # 设置编码
+            cursorclass=pymysql.cursors.DictCursor  # 返回字典格式的行
         )
+        self.cursor = self.connection.cursor()
+
+        with self.connection.cursor() as cursor:
+            sql = '''
+            SELECT DISTINCT t1.filepath
+            FROM changyi_list t1
+            INNER JOIN changyi_chex t2 ON t1.list_key = t2.list_key
+            LEFT JOIN changyi_detail td ON t1.filepath = td.filepath
+            WHERE t2.list_type = 3
+              AND td.filepath IS NULL limit 10; 
+            '''
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+            for i in rows:
+                item = ChangyiDetailItem()
+                item['filepath'] = i['filepath']
+
+                yield scrapy.Request(
+                    # url="https://www.car388.com/system/second/showpic_xiang.php?lei=1&page=1&aid=24713&max=619",
+                    # url="https://www.car388.com/system/1994-buick-Park-avenue/showpic_xiang.php?&page=1",
+                    # url="https://www.car388.com/system/second/showpic_xiang.php?lei=8W-01&page=15&aid=15473&max=16",
+                    url = item['filepath'],
+                    method='GET',
+                    headers=self.headers,
+                    # cookies=self.cookies,
+                    callback=self.parse,
+                    meta={'item': item}
+                )
 
     def parse(self, response):
         # 将 response 转为可修改的 lxml 文档
-
+        item = response.meta['item']
         result = detect(response.body)
         encoding = result['encoding']
         parser = etree.HTMLParser(encoding=encoding)
@@ -75,7 +105,10 @@ class ChangyiDianluLisSpider(scrapy.Spider):
         # 获取修改后的 HTML 字符串
         new_html = etree.tostring(tree, encoding='unicode', method='html')
         new_html.replace('文档还没结束。', '')
-        print(new_html)
+        new_html = re.sub('<br>\s+\[<a.+?</a>\s+\|\s+<br>', '', new_html)
+        # print(new_html)
+        item['html'] = new_html
+        yield item
 
     @staticmethod
     def absolutize_urls(tree, base_url):
@@ -89,7 +122,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
         """
         # 定义需要处理的 (标签名, 属性名) 列表
         url_attributes = [
-            ('*', 'src'),  # 注意：style 中的 url() 需要正则处理，较复杂
+            ('img', 'src'),  # 注意：style 中的 url() 需要正则处理，较复杂
         ]
 
         for tag, attr in url_attributes:

@@ -47,7 +47,15 @@ class ChangyiDianluLisSpider(scrapy.Spider):
         self.cursor = self.connection.cursor()
 
         with self.connection.cursor() as cursor:
-            cursor.execute("SELECT t1.*, t2.list_type from changyi_list t1 INNER join changyi_chex t2 on t1.list_key = t2.list_key  where t1.filepath not in (select distinct filepath from changyi_detail) limit 900")
+            sql = '''
+            SELECT DISTINCT t1.filepath
+            FROM changyi_list t1
+            INNER JOIN changyi_chex t2 ON t1.list_key = t2.list_key
+            LEFT JOIN changyi_detail td ON t1.filepath = td.filepath
+            WHERE t2.list_type = 2
+              AND td.filepath IS NULL limit 1; 
+            '''
+            cursor.execute(sql)
             rows = cursor.fetchall()
             for i in rows:
                 item = ChangyiDetailItem()
