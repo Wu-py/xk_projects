@@ -21,6 +21,8 @@ from spider.changyi_pc.changyi_pc.account_manager import AccountManager
 
 
 def _login(cookies, MachineId, loginid, loginpwd):
+    if cookies.get('PHPSESSID', None):
+        del cookies['PHPSESSID']
     headers = {
         "Host": "www.car388.com",
         "Upgrade-Insecure-Requests": "1",
