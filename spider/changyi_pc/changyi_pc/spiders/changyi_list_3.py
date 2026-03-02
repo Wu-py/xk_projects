@@ -1,8 +1,10 @@
 import copy
+import json
 import re
 import urllib
 from urllib.parse import urljoin
 
+import pymysql
 import requests
 import scrapy
 from twisted.web.http import urlparse
@@ -11,10 +13,10 @@ from spider.changyi_pc.changyi_pc.items import ChangyiPcListItem
 
 
 class ChangyiDianluLisSpider(scrapy.Spider):
-    name = "changyi_xianlutu_list_fute"
+    name = "changyi_list_3"
     table_name = "changyi_list"
     start_urls = ["https://www.car388.com/system/PC-2026/html/chex_list.php"]
-
+    not_data_cars = []
     headers = {
         "Host": "www.car388.com",
         "Upgrade-Insecure-Requests": "1",
@@ -27,99 +29,51 @@ class ChangyiDianluLisSpider(scrapy.Spider):
         "Referer": "https://www.car388.com/system/chex_ziliao_che.php?pinpai_id=58&chex_id=2092&pinpai_name&chex_name=Bronco%20Sport",
         "Accept-Language": "zh-CN"
     }
-    cookies = {
-        "_UUID_UV": "1769479948471149",
-        "53gid2": "17258468377003",
-        "53revisit": "1769479966488",
-        "__utmz": "139703073.1769500252.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none)",
-        "Hm_lvt_decbe98a86b71fe465bb5c6a3983c4e8": "1769501690",
-        "__utma": "139703073.1164173733.1769500252.1769502953.1770374162.3",
-        "PHPSESSID": "mq6eq7m0s20rd1s08lo51n1qe5",
-        "53kf_72099103_from_host": "www.car388.com",
-        "53kf_72099103_keyword": "https%3A%2F%2Fwww.car388.com%2Fsystem%2F2019-2%2Findex.php",
-        "uuid_53kf_72099103": "19249d0e5fbd54fe5c5c4eef29ddc8df",
-        "53kf_72099103_land_page": "https%253A%252F%252Fwww.car388.com%252Fsystem%252FPC-2026%252Findex.php",
-        "kf_72099103_land_page_ok": "1"
-    }
-
 
 
     def start_requests(self):
-        # pp_id = '58'
-        # pp_id = '63'
-        # pp_id = '64'
-        # pp_id = '10'
-        pp_id = '62'
-        pp_name = 'Chrysler(克莱斯勒)'
-        item = ChangyiPcListItem()
-        item['pp_id'] = pp_id
-        item['pp_name'] = pp_name
-        yield scrapy.Request(
-            url=self.start_urls[0] + f'?pinpai_id={pp_id}',
-            method='GET',
-            headers=self.headers,
-            cookies=self.cookies,
-            callback=self.parse_chex_list,
-            meta={'item':item},
+        self.connection = pymysql.connect(
+            host=self.settings.get('MYSQL_HOST'),
+            user=self.settings.get('MYSQL_USER'),
+            password=self.settings.get('MYSQL_PASSWORD'),
+            database=self.settings.get('MYSQL_DB'),
+            port=self.settings.get('MYSQL_PORT'),
+            charset='utf8mb4',  # 设置编码
+            cursorclass=pymysql.cursors.DictCursor  # 返回字典格式的行
         )
+        self.cursor = self.connection.cursor()
 
-    def parse_chex_list(self, response):
-        # print(response.text)
-        li_list = response.xpath("//li[@class='main7li']")
-        for li in li_list:
-            item = copy.deepcopy(response.meta['item'])
-            chex_name = li.xpath('.//center/text()').extract_first()
-            chex_href = li.xpath('./a/@href').extract_first()
-            # print(chex_href)
-            chex_id = re.search('chex_id=(\d+)', chex_href).group(1)
-            # test
-            # if chex_id != '3691':
-            #     continue
-            # print(chex_name, chex_id)
-
-            item['chex_name'] = chex_name
-            # https://www.car388.com/system/chex_ziliao_che.php?pinpai_id=242&chex_id=3706&pinpai_name&chex_name=阿维塔06
-            yield scrapy.Request(
-                url=chex_href,
-                method='GET',
-                headers=self.headers,
-                cookies=self.cookies,
-                callback=self.parse_year_list,
-                meta={'item': item},
-            )
-            # break
-
-    def parse_year_list(self, response):
-        # print(response.text)
-        tr_list = response.xpath("//tr[.//a]")
-        for tr in tr_list:
-            item = copy.deepcopy(response.meta['item'])
-            year = tr.xpath('.//div[@class="STYLE6"]/font/text()').extract_first()
-            year = re.search(r'(\d+[-\d]*)', year).group(1)
-            year_href = tr.xpath('.//a/@href').extract_first()
-            year_id = re.search('s4=(\d+)', year_href).group(1)
-            item['year'] = year
-            print(item)
-            next_url = f'https://www.car388.com/system/chex_ziliao_s.php?s4={year_id}&c_pinpai='
-            # print(next_url)
-            yield scrapy.Request(
-                url=next_url,
-                method='GET',
-                headers=self.headers,
-                cookies=self.cookies,
-                callback=self.parse_ziliao_list,
-                meta={'item': item},
-                dont_filter=True,
-            )
-            # break
+        with self.connection.cursor() as cursor:
+            cursor.execute("SELECT * from changyi_chex where list_type = 3 and note is null and list_key not in (select distinct list_key from changyi_list) limit 1")
+            rows = cursor.fetchall()
+            for i in rows:
+                item = ChangyiPcListItem()
+                item['pp_id'] = i['pp_id']
+                item['pp_name'] = i['pp_name']
+                item['series'] = i['series']
+                item['chex_name'] = i['chex_name']
+                item['year'] = i['year']
+                item['list_key'] = i['list_key']
+                year_id = json.loads(i['params'])['s4']
+                next_url = f'https://www.car388.com/system/chex_ziliao_s.php?s4={year_id}&c_pinpai='
+                # print(next_url)
+                yield scrapy.Request(
+                    url=next_url,
+                    method='GET',
+                    headers=self.headers,
+                    # cookies=self.cookies,
+                    callback=self.parse_ziliao_list,
+                    meta={'item': item},
+                    dont_filter=True,
+                )
+                # break
 
     def parse_ziliao_list(self, response):
-        # print(response.text)
-
         item = copy.deepcopy(response.meta['item'])
         ziliao_href = response.xpath('//span[@class="ziliao_name"]/a[contains(text(), "线路图")]/@href').get()
         if not ziliao_href:
-            print(item, '无数据')
+            print(item, '无线路图数据')
+            self.not_data_cars.append(item['list_key'])
             return
         next_url = urljoin(response.url, ziliao_href)
         # https://www.car388.com/system/second/index.php?lei=3&s4=3953&sid=blckeoipc36191ebdol9frlcn7&saiis=8105734479639&test_id=
@@ -128,7 +82,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             url=next_url,
             method='GET',
             headers=self.headers,
-            # cookies=self.cookies,
+            # # cookies=self.cookies,
             callback=self.parse_get_caidan_show_url,
             meta={'item': item},
             dont_filter=True,
@@ -145,7 +99,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             url=next_url,
             method='GET',
             headers=self.headers,
-            cookies=self.cookies,
+            # cookies=self.cookies,
             callback=self.parse_tree,
             meta={'item': item},
             dont_filter=True,
@@ -171,7 +125,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
                 url=next_url,
                 method='GET',
                 headers=self.headers,
-                cookies=self.cookies,
+                # cookies=self.cookies,
                 callback=callback,
                 meta={'item': item},
                 dont_filter=True,
@@ -191,7 +145,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
                     url=next_url,
                     method='GET',
                     headers=self.headers,
-                    cookies=self.cookies,
+                    # cookies=self.cookies,
                     callback=self.parse_zi_lei_list,
                     meta={'item': item, 'level':2},
                     dont_filter=True,
@@ -212,7 +166,9 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             next_url = next_url.replace('shows.php', 'ziliao_message_show_fen.php')
             # https://www.car388.com/system/second/ziliao_message_show_fen.php?ziliao_id=22619&zimu_id=92&zhumu_id=3&che_nian_id=287&che_id=185&page=1
             item['filepath'] = next_url
-            print(item)
+            item['type'] = '线路图'
+            # print(item)
+            yield item
 
     def parse_xlt(self, response):
         lis = response.xpath('//ul[@id="containerul"]/li')
@@ -221,7 +177,9 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             for i in self.get_items(li, item, 1, index):
                 filepath = i['filepath'].replace('showpic', 'showpic_xiang')
                 i['filepath'] = urljoin(response.url, filepath)
-                print(i)
+                i['type'] = ['线路图']
+                # print(i)
+                yield i
 
     def get_items(self, li_selector, item, level, file_index=1):
         # li_selector 是 Scrapy 的 Selector 对象
@@ -280,7 +238,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             url=next_url,
             method='GET',
             headers=self.headers,
-            cookies=self.cookies,
+            # cookies=self.cookies,
             callback=self.parse_tree_2022,
             meta={'item': item, 'level':1},
             dont_filter=True,
@@ -299,14 +257,11 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             for i in ChangyiDianluLisSpider.parse_detail(ul, item, response.meta['level'], index):
                 filepath = urljoin(response.url, i['filepath'])
                 if 'tid=' in filepath:
-                    print('gggggggggggggg')
-                    print(filepath)
-                    print(i)
                     yield scrapy.Request(
                         url=filepath,
                         method='GET',
                         headers=self.headers,
-                        cookies=self.cookies,
+                        # cookies=self.cookies,
                         callback=self.parse_tree_2022,
                         meta={'item': i, 'level': response.meta['level'] + 1},
                         dont_filter=True,
@@ -314,13 +269,14 @@ class ChangyiDianluLisSpider(scrapy.Spider):
                     continue
                 if not max_page:
                     try:
-                        rep = requests.get(filepath, headers=self.headers, cookies=self.cookies, verify=False)
+                        cookies = response.request.cookies
+                        rep = requests.get(filepath, headers=self.headers, cookies=cookies, verify=False)
                         max_page = re.search('&max=(\d+)', rep.text).group(1)
                     except Exception as e:
                         print(i, filepath, e)
                 i['filepath'] = filepath.replace('showpic', 'showpic_xiang') + f'&max={max_page}'
                 i['type'] = '线路图'
-                print(i)
+                yield i
 
     @staticmethod
     def parse_detail(ul, item, level, file_index):

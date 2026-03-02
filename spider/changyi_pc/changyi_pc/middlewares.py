@@ -153,7 +153,7 @@ class AccountCookieMiddleware:
         return None
 
     def process_response(self, request, response, spider):
-        if '请登录后使用' in response.text:
+        if '请登录后使用' in response.text or ('list' in spider.name and './denglu_fail.php' in response.text):
             account_name = request.meta['account_name']
             new_cookies = login(account_name, self.manager)
             self.manager.update_cookies(account_name, new_cookies)
