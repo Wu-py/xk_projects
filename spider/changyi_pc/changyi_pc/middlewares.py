@@ -5,6 +5,7 @@
 import os
 import re
 import threading
+import time
 from urllib.parse import urlparse, unquote
 
 import requests
@@ -153,7 +154,7 @@ class AccountCookieMiddleware:
         return None
 
     def process_response(self, request, response, spider):
-        if '请登录后使用' in response.text or ('list' in spider.name and './denglu_fail.php' in response.text):
+        if '请登录后使用' in response.text or ('list' in spider.name and './denglu_fail.php' in response.text) or ('detail' in spider.name and './test_code.php' in response.text):
             account_name = request.meta['account_name']
             new_cookies = login(account_name, self.manager)
             self.manager.update_cookies(account_name, new_cookies)
@@ -170,6 +171,7 @@ class ChangyiPcDownloaderMiddleware:
     def __init__(self):
         init_file()
         self.max_requests_per_day = {
+            'html': 1000
         }
 
     def process_request(self, request, spider):
@@ -182,11 +184,17 @@ class ChangyiPcDownloaderMiddleware:
             spider.crawler.engine.close_spider(spider, f'接口：{interface}, 请求次数已达上限，停止请求')
             raise IgnoreRequest(str(request.body))
 
-
     def process_response(self, request, response, spider):
         if '您访问频率过高' in response.text:
             accout_name = request.meta['account_name']
-            spider.crawler.engine.close_spider(spider, f'账号访问频率过高：{accout_name}')
+            # spider.crawler.engine.close_spider(spider, f'账号访问频率过高：{accout_name}')
+            print('账号访问频率过高')
+            time.sleep(300)
+            raise IgnoreRequest(f"账号访问频率过高：{accout_name}")
+        elif '用户当日访问超限' in response.text:
+            accout_name = request.meta['account_name']
+            spider.crawler.engine.close_spider(spider, f'用户当日访问超限：{accout_name}')
+            raise IgnoreRequest(f"用户当日访问超限：{accout_name}")
         return response
 
 
