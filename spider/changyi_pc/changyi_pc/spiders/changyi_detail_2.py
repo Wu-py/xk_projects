@@ -53,7 +53,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             INNER JOIN changyi_chex t2 ON t1.list_key = t2.list_key
             LEFT JOIN changyi_detail td ON t1.filepath = td.filepath
             WHERE t2.list_type = 2
-              AND td.filepath IS NULL limit 50; 
+              AND td.filepath IS NULL limit 500; 
             '''
             cursor.execute(sql)
             rows = cursor.fetchall()
@@ -86,6 +86,12 @@ class ChangyiDianluLisSpider(scrapy.Spider):
 
             if (div := tree.xpath('//div[@id="tool-container"]')) and div[0].getparent() is not None:
                 div[0].getparent().remove(div[0])
+
+            targets = tree.xpath('//a')
+            for node in targets:
+                parent = node.getparent()
+                if parent is not None:
+                    parent.remove(node)
 
             ChangyiDianluLisSpider.absolutize_urls(tree, response.url)
 

@@ -45,7 +45,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             INNER JOIN changyi_chex t2 ON t1.list_key = t2.list_key
             LEFT JOIN changyi_detail td ON t1.filepath = td.filepath
             WHERE t2.list_type = 3
-              AND td.filepath IS NULL limit 10; 
+              AND td.filepath IS NULL limit 500; 
             '''
             cursor.execute(sql)
             rows = cursor.fetchall()
@@ -95,6 +95,12 @@ class ChangyiDianluLisSpider(scrapy.Spider):
                 parent.remove(node)
 
         targets = tree.xpath('//*[contains(text(), "畅易")]')
+        for node in targets:
+            parent = node.getparent()
+            if parent is not None:
+                parent.remove(node)
+
+        targets = tree.xpath('//a')
         for node in targets:
             parent = node.getparent()
             if parent is not None:
