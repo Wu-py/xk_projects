@@ -92,7 +92,16 @@ class ChangyiPcPipeline:
     def _insert_batch(self):
         if not self.items_buffer:
             return
-        fields = list(self.items_buffer[0].keys())
+
+        # 动态获取批次内所有字段的并集
+        all_fields = set()
+        for item in self.items_buffer:
+            all_fields.update(item.keys())
+
+        # 确保去重字段在列中（防止去重字段缺失导致 SQL 错误）
+        # 如果去重字段在某些 item 中完全缺失，这里会报错，需在 process_item 中过滤
+        fields = sorted(list(all_fields))
+
         values = [tuple(item.get(f) for f in fields) for item in self.items_buffer]
         placeholders = ', '.join(['%s'] * len(fields))
         field_names = ', '.join([f'`{f}`' for f in fields])
