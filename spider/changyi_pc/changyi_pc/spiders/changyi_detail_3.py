@@ -110,7 +110,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
 
         # 获取修改后的 HTML 字符串
         new_html = etree.tostring(tree, encoding='unicode', method='html')
-        new_html.replace('文档还没结束。', '')
+        new_html = new_html.replace('文档还没结束。', '')
         new_html = re.sub('<br>\s+\[<a.+?</a>\s+\|\s+<br>', '', new_html)
         # print(new_html)
         item['html'] = new_html

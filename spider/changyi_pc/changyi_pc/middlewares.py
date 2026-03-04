@@ -176,7 +176,7 @@ class ChangyiPcDownloaderMiddleware:
 
     def process_request(self, request, spider):
         interface = self.get_last_route_with_ext(request.url,request.method)
-        if get_interface_count(interface) < self.max_requests_per_day.get(interface, 2000):
+        if get_interface_count(interface) < self.max_requests_per_day.get(interface, 5000):
             increment_interface_count(interface)
             return None
         else:

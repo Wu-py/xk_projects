@@ -53,7 +53,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             INNER JOIN changyi_chex t2 ON t1.list_key = t2.list_key
             LEFT JOIN changyi_detail td ON t1.filepath = td.filepath
             WHERE t2.list_type = 2
-              AND td.filepath IS NULL limit 500; 
+              AND td.filepath IS NULL limit 1000; 
             '''
             cursor.execute(sql)
             rows = cursor.fetchall()
