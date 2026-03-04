@@ -6,7 +6,7 @@ from urllib.parse import urljoin
 import pymysql
 import scrapy
 from lxml import etree
-from spider.ft_data.ft_data.items import FtDataItem
+from spider.ft_data.ft_data.items import FtDataListItem, FtDataDetailItem
 
 
 class FtDataSpider(scrapy.Spider):
@@ -31,7 +31,7 @@ class FtDataSpider(scrapy.Spider):
         )
 
     def parse(self, response):
-        item = FtDataItem()
+        item = FtDataListItem()
         item['brand'] = '丰田'
         destination = re.search('"E": "(.+?)"', response.text).group(1)
         item['destination'] = destination
@@ -66,6 +66,7 @@ class FtDataSpider(scrapy.Spider):
                 callback=self.parse3,
                 meta={'item': item}
             )
+            break
 
     def parse3(self, response):
         '''
@@ -75,15 +76,17 @@ class FtDataSpider(scrapy.Spider):
         item = copy.deepcopy(response.meta['item'])
         for section in sections:
             id = section.xpath('./@id').get().strip('_')
-            next_url = f'http://127.0.0.1:8000/manual/repair/control/{item["year"]}/toc-{id}.xml'
+            # next_url = f'http://127.0.0.1:8000/manual/repair/control/{item["year"]}/toc-{id}.xml'
+            next_url = f'http://127.0.0.1:8000/manual/repair/control/201201/toc-004590.xml'
             yield scrapy.Request(
                 url=next_url,
                 method='GET',
                 headers=self.headers,
                 callback=self.parse4,
-                dont_filter=True,
+                # dont_filter=True,
                 meta={'item': response.meta['item']}
             )
+            # break
 
     def parse4(self, response):
         '''
@@ -95,24 +98,59 @@ class FtDataSpider(scrapy.Spider):
             item['title_1'] = para.xpath('string(ancestor::servcat/name[1])').get()
             item['title_2'] = para.xpath('string(ancestor::section/name[1])').get()
             item['title_3'] = para.xpath('string(ancestor::ttl/name[1])').get()
-            item['title_4'] = para.xpath('string(name[1])').get()
-            file_id = para.xpath('./@id').get().strip()
-            item['file_id'] = file_id
-            file_url = f'http://127.0.0.1:8000/manual/repair/contents/{file_id}.html'
+            if para.xpath('./@category').get() == 'C':
+                item['title_4'] = 'DIAGNOSTIC TROUBLE CODE CHART'
+                item['title_5'] = para.xpath('./@dtccode').get()
+                dtccode_id = para.xpath('./@id').get()
+                item['file_id'] = dtccode_id
+                # http://127.0.0.1:8000/manual/repair/contents/flow/RM1000000004C0M_flow.html
+                file_url = f'http://127.0.0.1:8000/manual/repair/contents/flow/{dtccode_id}_flow.html'
+                yield scrapy.Request(
+                    url=file_url,
+                    method='GET',
+                    headers=self.headers,
+                    callback=self.parse5,
+                    meta={'file_id': item['file_id']}
+                )
+
+                subparas = para.xpath('./dtccode/subpara')
+                for subpara in subparas:
+                    item2 = copy.deepcopy(item)
+                    item2['title_6'] = subpara.xpath('./name/text()').get()
+                    file_id = subpara.xpath('./@id').get().strip()
+                    item2['file_id'] = file_id
+                    file_url = f'http://127.0.0.1:8000/manual/repair/contents/{dtccode_id}.html?dummyp={file_id}'
+            #         http://127.0.0.1:8000/manual/repair/contents/RM1000000004C0M.html?dummyp=RM1000000004C0M_01&PUB_TYPE=RM&MODE=2
+                    yield item2
+                    yield scrapy.Request(
+                        url=file_url,
+                        method='GET',
+                        headers=self.headers,
+                        callback=self.parse5,
+                        meta={'file_id': item2['file_id']}
+                    )
+            else:
+                item['title_4'] = para.xpath('string(name[1])').get()
+                file_id = para.xpath('./@id').get().strip()
+                item['file_id'] = file_id
+                file_url = f'http://127.0.0.1:8000/manual/repair/contents/{file_id}.html'
+            yield item
             yield scrapy.Request(
                 url=file_url,
                 method='GET',
                 headers=self.headers,
-                dont_filter=True,
                 callback=self.parse5,
-                meta={'item': item}
+                meta={'file_id': item['file_id']}
             )
 
     def parse5(self, response):
+        return
         '''
         详情页
         '''
         # print(response.text)
+        item_detail = FtDataDetailItem()
+        item_detail['file_id'] = response.meta['file_id']
         parser = etree.HTMLParser()
         tree = etree.fromstring(response.body, parser)
 
@@ -121,9 +159,8 @@ class FtDataSpider(scrapy.Spider):
 
         FtDataSpider.absolutize_urls(tree, response.url)
         new_html = etree.tostring(tree, encoding='unicode', method='html')
-        item = copy.deepcopy(response.meta['item'])
-        # item['content'] = new_html
-        yield item
+        item_detail['content'] = new_html
+        yield item_detail
 
 
     @staticmethod
