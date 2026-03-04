@@ -26,5 +26,3 @@ class FtDataDetailItem(scrapy.Item):
     # define the fields for your item here like:
     file_id = scrapy.Field()
     content = scrapy.Field()
-
-

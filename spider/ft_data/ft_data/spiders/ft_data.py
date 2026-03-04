@@ -1,6 +1,7 @@
 import copy
 import re
 import urllib
+from copy import deepcopy
 from urllib.parse import urljoin
 
 import pymysql
@@ -66,7 +67,7 @@ class FtDataSpider(scrapy.Spider):
                 callback=self.parse3,
                 meta={'item': item}
             )
-            break
+            # break
 
     def parse3(self, response):
         '''
@@ -99,9 +100,9 @@ class FtDataSpider(scrapy.Spider):
             item['title_2'] = para.xpath('string(ancestor::section/name[1])').get()
             item['title_3'] = para.xpath('string(ancestor::ttl/name[1])').get()
             if para.xpath('./@category').get() == 'C':
-                yield from self._handle_dtc_category(para, item)
+                yield from self._handle_dtc_category(para, deepcopy(item))
             else:
-                yield from self._handle_normal_category(para, item)
+                yield from self._handle_normal_category(para, deepcopy(item))
 
     def _handle_dtc_category(self, para, item):
         item['title_4'] = 'DIAGNOSTIC TROUBLE CODE CHART'
@@ -154,6 +155,7 @@ class FtDataSpider(scrapy.Spider):
         '''
         详情页
         '''
+        # return
         # print(response.text)
         item_detail = FtDataDetailItem()
         item_detail['file_id'] = response.meta['file_id']
