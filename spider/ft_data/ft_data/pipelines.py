@@ -7,13 +7,18 @@ from scrapy.exceptions import DropItem
 from twisted.enterprise import adbapi
 import logging
 
+from spider.ft_data.ft_data.items import FtDataListItem, FtDataDetailItem
+
 logger = logging.getLogger(__name__)
 
 class FtDataPipeline:
     def __init__(self, db_pool, db_params=None):
         self.db_pool = db_pool
         self.db_params = db_params or {}  # 保存数据库连接参数供后续使用
-        self.items_buffer = []
+        self.items_buffer = {
+            'ft_data_list': [],
+            'ft_data_detail': []
+        }
         self.batch_size = 100
         self.dedup_method = 'ignore'
         self.table_name = None
@@ -39,45 +44,60 @@ class FtDataPipeline:
         return pipeline
 
     def process_item(self, item, spider):
-        if not self.table_name:
-            self.table_name = spider.table_name
-        self.items_buffer.append(dict(item))
-        if len(self.items_buffer) >= self.batch_size:
-            self._flush_buffer()
+        if isinstance(item, FtDataDetailItem):
+            table_name = 'ft_data_detail'
+        else:
+            item = self._normalize_item(item, spider)
+            table_name = 'ft_data_list'
+        self.items_buffer[table_name].append(dict(item))
+        if len(self.items_buffer[table_name]) >= self.batch_size:
+            self._flush_buffer(table_name)
         return item
 
+    def _normalize_item(self, item, spider):
+        list_text = item.get('model', '') + item.get('year', '') + item.get('type', '') + item.get('title_1', '') + item.get('title_2', '') + item.get('title_3', '') + item.get('title_4', '') + item.get('title_5', '') + item.get('title_6', '')
+        list_key = self.get_md5_basic(list_text)
+        item['car_title_key'] = list_key
+        return item
 
-    def _flush_buffer(self):
-        if not self.items_buffer:
+    def get_md5_basic(self, text):
+        # 1. 字符串必须编码为 bytes (utf-8)
+        # 2. 计算 hash
+        # 3. 转换为十六进制字符串
+        return hashlib.md5(text.encode('utf-8')).hexdigest()
+
+
+    def _flush_buffer(self, table_name):
+        if not self.items_buffer[table_name]:
             return
         try:
             if self.dedup_method == 'query':
                 self._insert_with_query()
             else:
-                self._insert_batch()
-            logger.info(f"成功插入 {len(self.items_buffer)} 条数据")
+                self._insert_batch(table_name)
+            logger.info(f"成功插入 {len(self.items_buffer[table_name])} 条数据")
         except Exception as e:
             logger.error(f"批量插入失败: {e}")
         finally:
-            self.items_buffer.clear()
+            self.items_buffer[table_name].clear()
 
-    def _insert_batch(self):
-        if not self.items_buffer:
+    def _insert_batch(self, table_name):
+        if not self.items_buffer[table_name]:
             return
-        fields = list(self.items_buffer[0].keys())
-        values = [tuple(item.get(f) for f in fields) for item in self.items_buffer]
+        fields = list(self.items_buffer[table_name][0].keys())
+        values = [tuple(item.get(f) for f in fields) for item in self.items_buffer[table_name]]
         placeholders = ', '.join(['%s'] * len(fields))
         field_names = ', '.join([f'`{f}`' for f in fields])
         if self.dedup_method == 'ignore':
-            sql = f"INSERT IGNORE INTO `{self.table_name}` ({field_names}) VALUES ({placeholders})"
+            sql = f"INSERT IGNORE INTO `{table_name}` ({field_names}) VALUES ({placeholders})"
         elif self.dedup_method == 'replace':
-            sql = f"REPLACE INTO `{self.table_name}` ({field_names}) VALUES ({placeholders})"
+            sql = f"REPLACE INTO `{table_name}` ({field_names}) VALUES ({placeholders})"
         else:
             raise ValueError("不支持的去重方式")
         return self.db_pool.runInteraction(self._execute_sql, sql, values)
 
-    def _insert_with_query(self):
-        for item in self.items_buffer:
+    def _insert_with_query(self, table_name):
+        for item in self.items_buffer[table_name]:
             where_clause = ' AND '.join([f"`{f}` = %s" for f in self.unique_fields])
             select_sql = f"SELECT 1 FROM `{self.table_name}` WHERE {where_clause} LIMIT 1"
             where_values = tuple(item[f] for f in self.unique_fields)
@@ -106,7 +126,8 @@ class FtDataPipeline:
 
 
     def close_spider(self, spider):
-        self._flush_buffer()
+        for table_name in self.items_buffer.keys():
+            self._flush_buffer(table_name)
         self.db_pool.close()
 
 

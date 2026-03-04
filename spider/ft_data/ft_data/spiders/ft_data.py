@@ -76,8 +76,8 @@ class FtDataSpider(scrapy.Spider):
         item = copy.deepcopy(response.meta['item'])
         for section in sections:
             id = section.xpath('./@id').get().strip('_')
-            # next_url = f'http://127.0.0.1:8000/manual/repair/control/{item["year"]}/toc-{id}.xml'
-            next_url = f'http://127.0.0.1:8000/manual/repair/control/201201/toc-004590.xml'
+            next_url = f'http://127.0.0.1:8000/manual/repair/control/{item["year"]}/toc-{id}.xml'
+            # next_url = f'http://127.0.0.1:8000/manual/repair/control/201201/toc-004590.xml'
             yield scrapy.Request(
                 url=next_url,
                 method='GET',
@@ -99,52 +99,58 @@ class FtDataSpider(scrapy.Spider):
             item['title_2'] = para.xpath('string(ancestor::section/name[1])').get()
             item['title_3'] = para.xpath('string(ancestor::ttl/name[1])').get()
             if para.xpath('./@category').get() == 'C':
-                item['title_4'] = 'DIAGNOSTIC TROUBLE CODE CHART'
-                item['title_5'] = para.xpath('./@dtccode').get()
-                dtccode_id = para.xpath('./@id').get()
-                item['file_id'] = dtccode_id
-                # http://127.0.0.1:8000/manual/repair/contents/flow/RM1000000004C0M_flow.html
-                file_url = f'http://127.0.0.1:8000/manual/repair/contents/flow/{dtccode_id}_flow.html'
-                yield scrapy.Request(
-                    url=file_url,
-                    method='GET',
-                    headers=self.headers,
-                    callback=self.parse5,
-                    meta={'file_id': item['file_id']}
-                )
-
-                subparas = para.xpath('./dtccode/subpara')
-                for subpara in subparas:
-                    item2 = copy.deepcopy(item)
-                    item2['title_6'] = subpara.xpath('./name/text()').get()
-                    file_id = subpara.xpath('./@id').get().strip()
-                    item2['file_id'] = file_id
-                    file_url = f'http://127.0.0.1:8000/manual/repair/contents/{dtccode_id}.html?dummyp={file_id}'
-            #         http://127.0.0.1:8000/manual/repair/contents/RM1000000004C0M.html?dummyp=RM1000000004C0M_01&PUB_TYPE=RM&MODE=2
-                    yield item2
-                    yield scrapy.Request(
-                        url=file_url,
-                        method='GET',
-                        headers=self.headers,
-                        callback=self.parse5,
-                        meta={'file_id': item2['file_id']}
-                    )
+                yield from self._handle_dtc_category(para, item)
             else:
-                item['title_4'] = para.xpath('string(name[1])').get()
-                file_id = para.xpath('./@id').get().strip()
-                item['file_id'] = file_id
-                file_url = f'http://127.0.0.1:8000/manual/repair/contents/{file_id}.html'
-            yield item
+                yield from self._handle_normal_category(para, item)
+
+    def _handle_dtc_category(self, para, item):
+        item['title_4'] = 'DIAGNOSTIC TROUBLE CODE CHART'
+        item['title_5'] = para.xpath('./@dtccode').get()
+        dtccode_id = para.xpath('./@id').get()
+        item['file_id'] = dtccode_id
+        # http://127.0.0.1:8000/manual/repair/contents/flow/RM1000000004C0M_flow.html
+        file_url = f'http://127.0.0.1:8000/manual/repair/contents/flow/{dtccode_id}_flow.html'
+        yield item
+        yield scrapy.Request(
+            url=file_url,
+            method='GET',
+            headers=self.headers,
+            callback=self.parse5,
+            meta={'file_id': item['file_id']}
+        )
+
+        subparas = para.xpath('./dtccode/subpara')
+        for subpara in subparas:
+            item2 = copy.deepcopy(item)
+            item2['title_6'] = subpara.xpath('./name/text()').get()
+            file_id = subpara.xpath('./@id').get().strip()
+            item2['file_id'] = file_id
+            file_url = f'http://127.0.0.1:8000/manual/repair/contents/{dtccode_id}.html?dummyp={file_id}'
+            #         http://127.0.0.1:8000/manual/repair/contents/RM1000000004C0M.html?dummyp=RM1000000004C0M_01&PUB_TYPE=RM&MODE=2
+            yield item2
             yield scrapy.Request(
                 url=file_url,
                 method='GET',
                 headers=self.headers,
                 callback=self.parse5,
-                meta={'file_id': item['file_id']}
+                meta={'file_id': item2['file_id']}
             )
 
+    def _handle_normal_category(self, para, item):
+        item['title_4'] = para.xpath('string(name[1])').get()
+        file_id = para.xpath('./@id').get().strip()
+        item['file_id'] = file_id
+        file_url = f'http://127.0.0.1:8000/manual/repair/contents/{file_id}.html'
+        yield item
+        yield scrapy.Request(
+            url=file_url,
+            method='GET',
+            headers=self.headers,
+            callback=self.parse5,
+            meta={'file_id': item['file_id']}
+        )
+
     def parse5(self, response):
-        return
         '''
         详情页
         '''
