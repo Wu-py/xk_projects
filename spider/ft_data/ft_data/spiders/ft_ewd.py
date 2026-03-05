@@ -1,6 +1,7 @@
 import copy
 import re
 import urllib
+from collections import defaultdict
 from copy import deepcopy
 from urllib.parse import urljoin
 
@@ -16,7 +17,7 @@ class FtDataSpider(scrapy.Spider):
     table_name = "ft_ewd"
     type = '电路图'
     resource_base_url = 'http://127.0.0.1:8000/manual/ewd/'
-    file_id_url = {}
+    file_id_url = defaultdict(dict)
     headers = {
         "sec-ch-ua-platform": "\"Windows\"",
         "Referer": "http://127.0.0.1:8000/pgm/top.html",
@@ -71,7 +72,7 @@ class FtDataSpider(scrapy.Spider):
                 callback=self.parse3,
                 meta={'item': item}
             )
-            # break
+            break
 
     def parse3(self, response):
         '''
@@ -93,35 +94,48 @@ class FtDataSpider(scrapy.Spider):
             #         meta={'item': item}
             #     )
             if id == 'system':
-                self.get_file_id_url('system')
-                next_url = f'http://127.0.0.1:8000/manual/ewd/contents/tree/{item["year"]}/tree-system.xml'
+                self.get_file_id_url(id)
+                next_url = f'http://127.0.0.1:8000/manual/ewd/contents/tree/{item["year"]}/tree-{id}.xml'
                 yield scrapy.Request(
                     url=next_url,
                     method='GET',
                     headers=self.headers,
-                    callback=self.parse_system,
+                    callback=self.parse_list,
                     dont_filter=True,
-                    meta={'item': item}
+                    meta={'item': item, 'path_id': id}
                 )
-                break
+
+            # if id == 'routing':
+            #     self.get_file_id_url(id)
+            #     next_url = f'http://127.0.0.1:8000/manual/ewd/contents/tree/{item["year"]}/tree-{id}.xml'
+            #     yield scrapy.Request(
+            #         url=next_url,
+            #         method='GET',
+            #         headers=self.headers,
+            #         callback=self.parse_list,
+            #         dont_filter=True,
+            #         meta={'item': item, 'path_id': id}
+            #     )
+
             # break
 
     def get_file_id_url(self, type):
-        if not self.file_id_url:
+        if not self.file_id_url[type]:
             url = f'http://127.0.0.1:8000/manual/ewd/contents/{type}/title.xml'
             response = requests.get(url)
-            html = etree.HTML(response.text)
-            Systems = html.xpath('//system')
+            html = etree.HTML(response.content)
+            Systems = html.xpath(f'//{type}')
             for system in Systems:
                 id = system.xpath('./name/@code')[0]
                 file_url_name = system.xpath('./fig/text()')[0]
-                self.file_id_url.update({id: file_url_name})
+                self.file_id_url[type].update({id: file_url_name})
 
 
-    def parse_system(self, response):
+    def parse_list(self, response):
         '''
         二级目录页
         '''
+        path_id = response.meta['path_id']
         for book in response.xpath('.//book'):
             book_name = book.xpath('./name/text()').get()
             for note in book.xpath('./note'):
@@ -133,8 +147,8 @@ class FtDataSpider(scrapy.Spider):
                 item['file_id'] = file_id
                 yield item
 
-                file_name = self.file_id_url[id]
-                file_url = f'http://127.0.0.1:8000/manual/ewd/contents/system/figsvg/{file_name}.svg'
+                file_name = self.file_id_url[path_id][id]
+                file_url = f'http://127.0.0.1:8000/manual/ewd/contents/{path_id}/figsvg/{file_name}.svg'
                 yield scrapy.Request(
                     url=file_url,
                     method='GET',
