@@ -7,7 +7,7 @@ from scrapy.exceptions import DropItem
 from twisted.enterprise import adbapi
 import logging
 
-from spider.ft_data.ft_data.items import FtDataListItem, FtDataDetailItem
+from spider.ft_data.ft_data.items import FtDataRepairListItem, FtDataRepairDetailItem
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +16,8 @@ class FtDataPipeline:
         self.db_pool = db_pool
         self.db_params = db_params or {}  # 保存数据库连接参数供后续使用
         self.items_buffer = {
-            'ft_data_list': [],
-            'ft_data_detail': []
+            'ft_repair_list': [],
+            'ft_repair_detail': []
         }
         self.batch_size = 100
         self.dedup_method = 'ignore'
@@ -44,11 +44,11 @@ class FtDataPipeline:
         return pipeline
 
     def process_item(self, item, spider):
-        if isinstance(item, FtDataDetailItem):
-            table_name = 'ft_data_detail'
+        if isinstance(item, FtDataRepairDetailItem):
+            table_name = 'ft_repair_detail'
         else:
             item = self._normalize_item(item, spider)
-            table_name = 'ft_data_list'
+            table_name = 'ft_repair_list'
         self.items_buffer[table_name].append(dict(item))
         if len(self.items_buffer[table_name]) >= self.batch_size:
             self._flush_buffer(table_name)

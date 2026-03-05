@@ -6,7 +6,7 @@
 import scrapy
 
 
-class FtDataListItem(scrapy.Item):
+class FtDataRepairListItem(scrapy.Item):
     # define the fields for your item here like:
     brand = scrapy.Field()
     model = scrapy.Field()
@@ -22,7 +22,7 @@ class FtDataListItem(scrapy.Item):
     file_id = scrapy.Field()
     car_title_key = scrapy.Field()
 
-class FtDataDetailItem(scrapy.Item):
+class FtDataRepairDetailItem(scrapy.Item):
     # define the fields for your item here like:
     file_id = scrapy.Field()
     content = scrapy.Field()

@@ -7,12 +7,12 @@ from urllib.parse import urljoin
 import pymysql
 import scrapy
 from lxml import etree
-from spider.ft_data.ft_data.items import FtDataListItem, FtDataDetailItem
+from spider.ft_data.ft_data.items import FtDataRepairListItem, FtDataRepairDetailItem
 
 
 class FtDataSpider(scrapy.Spider):
-    name = "ft_data"
-    table_name = "ft_data"
+    name = "ft_repair"
+    table_name = "ft_repair"
     headers = {
         "sec-ch-ua-platform": "\"Windows\"",
         "Referer": "http://127.0.0.1:8000/pgm/top.html",
@@ -32,7 +32,7 @@ class FtDataSpider(scrapy.Spider):
         )
 
     def parse(self, response):
-        item = FtDataListItem()
+        item = FtDataRepairListItem()
         item['brand'] = '丰田'
         destination = re.search('"E": "(.+?)"', response.text).group(1)
         item['destination'] = destination
@@ -157,7 +157,7 @@ class FtDataSpider(scrapy.Spider):
         '''
         # return
         # print(response.text)
-        item_detail = FtDataDetailItem()
+        item_detail = FtDataRepairDetailItem()
         item_detail['file_id'] = response.meta['file_id']
         parser = etree.HTMLParser()
         tree = etree.fromstring(response.body, parser)
