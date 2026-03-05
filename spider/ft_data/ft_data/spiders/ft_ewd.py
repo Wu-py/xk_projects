@@ -5,6 +5,7 @@ from copy import deepcopy
 from urllib.parse import urljoin
 
 import pymysql
+import requests
 import scrapy
 from lxml import etree
 from spider.ft_data.ft_data.items import FtDataRepairListItem, FtDataRepairDetailItem
@@ -15,6 +16,7 @@ class FtDataSpider(scrapy.Spider):
     table_name = "ft_ewd"
     type = '电路图'
     resource_base_url = 'http://127.0.0.1:8000/manual/ewd/'
+    file_id_url = {}
     headers = {
         "sec-ch-ua-platform": "\"Windows\"",
         "Referer": "http://127.0.0.1:8000/pgm/top.html",
@@ -69,6 +71,7 @@ class FtDataSpider(scrapy.Spider):
                 callback=self.parse3,
                 meta={'item': item}
             )
+            # break
 
     def parse3(self, response):
         '''
@@ -79,24 +82,72 @@ class FtDataSpider(scrapy.Spider):
             item = copy.deepcopy(response.meta['item'])
             item['title_1'] = section.xpath('./name/text()').get()
             id = section.xpath('./@id').get()
-            if id == 'intro':
-                next_url = f'http://127.0.0.1:8000/manual/ewd/intro/intro.xml'
-
+            # if id == 'intro':
+            #     next_url = f'http://127.0.0.1:8000/manual/ewd/intro/intro.xml'
+            #     yield scrapy.Request(
+            #         url=next_url,
+            #         method='GET',
+            #         headers=self.headers,
+            #         callback=self.parse_intro,
+            #         dont_filter=True,
+            #         meta={'item': item}
+            #     )
+            if id == 'system':
+                self.get_file_id_url('system')
+                next_url = f'http://127.0.0.1:8000/manual/ewd/contents/tree/{item["year"]}/tree-system.xml'
                 yield scrapy.Request(
                     url=next_url,
                     method='GET',
                     headers=self.headers,
-                    callback=self.parse_intro,
+                    callback=self.parse_system,
                     dont_filter=True,
                     meta={'item': item}
                 )
+                break
             # break
+
+    def get_file_id_url(self, type):
+        if not self.file_id_url:
+            url = f'http://127.0.0.1:8000/manual/ewd/contents/{type}/title.xml'
+            response = requests.get(url)
+            html = etree.HTML(response.text)
+            Systems = html.xpath('//system')
+            for system in Systems:
+                id = system.xpath('./name/@code')[0]
+                file_url_name = system.xpath('./fig/text()')[0]
+                self.file_id_url.update({id: file_url_name})
+
+
+    def parse_system(self, response):
+        '''
+        二级目录页
+        '''
+        for book in response.xpath('.//book'):
+            book_name = book.xpath('./name/text()').get()
+            for note in book.xpath('./note'):
+                item = copy.deepcopy(response.meta['item'])
+                item['title_2'] = book_name
+                item['title_3'] = note.xpath('./name/text()').get()
+                id = note.xpath('./@id').get()
+                file_id = item['model'] + '_' + id
+                item['file_id'] = file_id
+                yield item
+
+                file_name = self.file_id_url[id]
+                file_url = f'http://127.0.0.1:8000/manual/ewd/contents/system/figsvg/{file_name}.svg'
+                yield scrapy.Request(
+                    url=file_url,
+                    method='GET',
+                    headers=self.headers,
+                    callback=self.parse_detail,
+                    meta={'file_id': file_id}
+                )
+
 
     def parse_intro(self, response):
         '''
         二级目录页
         '''
-
         for Intro in response.xpath('.//Intro'):
             item = copy.deepcopy(response.meta['item'])
             item['title_2'] = Intro.xpath('./name/text()').get()
@@ -144,7 +195,7 @@ class FtDataSpider(scrapy.Spider):
         url_attributes = [
             ('*', 'src'),  # 注意：style 中的 url() 需要正则处理，较复杂
             ('link', 'href'),  # 注意：style 中的 url() 需要正则处理，较复杂
-            ('script', 'xlink:href'),  # svg
+            # ('script', 'xlink:href'),  # svg
         ]
 
         for tag, attr in url_attributes:
@@ -159,7 +210,7 @@ class FtDataSpider(scrapy.Spider):
                     elem.set(attr, absolute_url)
 
 if __name__ == '__main__':
-    print(urljoin('http://127.0.0.1:8000/manual/ewd/', 'intro/image/intro/1.png'))
+    print(urljoin('http://127.0.0.1:8000/manual/ewd/', '../../../../../system/js/ewd/fig/svgfig.js'))
 
 
 
