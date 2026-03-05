@@ -14,6 +14,7 @@ class FtDataSpider(scrapy.Spider):
     name = "ft_ewd"
     table_name = "ft_ewd"
     type = '电路图'
+    resource_base_url = 'http://127.0.0.1:8000/manual/ewd/'
     headers = {
         "sec-ch-ua-platform": "\"Windows\"",
         "Referer": "http://127.0.0.1:8000/pgm/top.html",
@@ -60,7 +61,7 @@ class FtDataSpider(scrapy.Spider):
             item['year'] = date
             item['type'] = self.type
             # print(item)
-            next_url = f'http://127.0.0.1:8000/manual/ncf/control/{date}/toc-root.xml'
+            next_url = f'http://127.0.0.1:8000/manual/ewd/contents/tree/{date}/tree-root.xml'
             yield scrapy.Request(
                 url=next_url,
                 method='GET',
@@ -73,53 +74,47 @@ class FtDataSpider(scrapy.Spider):
         '''
         一级目录页
         '''
-        sections = response.xpath('//section')
-        item = copy.deepcopy(response.meta['item'])
+        sections = response.xpath('//root')
         for section in sections:
-            id = section.xpath('./@id').get().strip('_')
-            next_url = f'http://127.0.0.1:8000/manual/ncf/control/{item["year"]}/toc-{id}.xml'
-            # next_url = f'http://127.0.0.1:8000/manual/repair/control/201201/toc-004590.xml'
-            yield scrapy.Request(
-                url=next_url,
-                method='GET',
-                headers=self.headers,
-                callback=self.parse4,
-                # dont_filter=True,
-                meta={'item': response.meta['item']}
-            )
+            item = copy.deepcopy(response.meta['item'])
+            item['title_1'] = section.xpath('./name/text()').get()
+            id = section.xpath('./@id').get()
+            if id == 'intro':
+                next_url = f'http://127.0.0.1:8000/manual/ewd/intro/intro.xml'
+
+                yield scrapy.Request(
+                    url=next_url,
+                    method='GET',
+                    headers=self.headers,
+                    callback=self.parse_intro,
+                    dont_filter=True,
+                    meta={'item': item}
+                )
             # break
 
-    def parse4(self, response):
+    def parse_intro(self, response):
         '''
         二级目录页
         '''
 
-        for para in response.xpath('.//para'):
+        for Intro in response.xpath('.//Intro'):
             item = copy.deepcopy(response.meta['item'])
-            item['title_1'] = para.xpath('string(ancestor::servcat/name[1])').get()
-            item['title_2'] = para.xpath('string(ancestor::section/name[1])').get()
-            item['title_3'] = para.xpath('string(ancestor::ttl/name[1])').get()
-            if para.xpath('./@category').get() == 'F':
-                yield from self._handle_f_category(para, deepcopy(item))
-            else:
-                raise ValueError('ttttttttttttttttt', item)
+            item['title_2'] = Intro.xpath('./name/text()').get()
+            file = Intro.xpath('./file/text()').get()
+            file_id = item['model'] + '_' + file
+            item['file_id'] = file_id
+            file_url = f'http://127.0.0.1:8000/manual/ewd/intro/{file}.html'
+            yield item
+            yield scrapy.Request(
+                url=file_url,
+                method='GET',
+                headers=self.headers,
+                callback=self.parse_detail,
+                meta={'file_id': file_id}
+            )
+            # break
 
-    def _handle_f_category(self, para, item):
-        item['title_5'] = para.xpath('string(name[1])').get()
-        file_id = para.xpath('./@id').get().strip()
-        item['file_id'] = file_id
-        file_url = f'http://127.0.0.1:8000/manual/ncf/contents/{file_id}.html'
-        item['title_4'] = para.xpath('./ncf-para/name/text()').get()
-        yield item
-        yield scrapy.Request(
-            url=file_url,
-            method='GET',
-            headers=self.headers,
-            callback=self.parse5,
-            meta={'file_id': item['file_id']}
-        )
-
-    def parse5(self, response):
+    def parse_detail(self, response):
         '''
         详情页
         '''
@@ -129,11 +124,7 @@ class FtDataSpider(scrapy.Spider):
         item_detail['file_id'] = response.meta['file_id']
         parser = etree.HTMLParser()
         tree = etree.fromstring(response.body, parser)
-
-        for a in tree.xpath('//a'):
-            a.getparent().remove(a)
-
-        FtDataSpider.absolutize_urls(tree, response.url)
+        FtDataSpider.absolutize_urls(tree, self.resource_base_url)
         new_html = etree.tostring(tree, encoding='unicode', method='html')
         item_detail['content'] = new_html
         yield item_detail
@@ -153,6 +144,7 @@ class FtDataSpider(scrapy.Spider):
         url_attributes = [
             ('*', 'src'),  # 注意：style 中的 url() 需要正则处理，较复杂
             ('link', 'href'),  # 注意：style 中的 url() 需要正则处理，较复杂
+            ('script', 'xlink:href'),  # svg
         ]
 
         for tag, attr in url_attributes:
@@ -165,6 +157,9 @@ class FtDataSpider(scrapy.Spider):
                     # 补全为绝对 URL
                     absolute_url = urljoin(base_url, current_value)
                     elem.set(attr, absolute_url)
+
+if __name__ == '__main__':
+    print(urljoin('http://127.0.0.1:8000/manual/ewd/', 'intro/image/intro/1.png'))
 
 
 
