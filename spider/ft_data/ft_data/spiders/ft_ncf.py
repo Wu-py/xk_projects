@@ -130,9 +130,6 @@ class FtDataSpider(scrapy.Spider):
         parser = etree.HTMLParser()
         tree = etree.fromstring(response.body, parser)
 
-        for a in tree.xpath('//a'):
-            a.getparent().remove(a)
-
         FtDataSpider.absolutize_urls(tree, response.url)
         new_html = etree.tostring(tree, encoding='unicode', method='html')
         item_detail['content'] = new_html
