@@ -17,7 +17,9 @@ class FtDataPipeline:
         self.db_params = db_params or {}  # 保存数据库连接参数供后续使用
         self.items_buffer = {
             'ft_repair_list': [],
-            'ft_repair_detail': []
+            'ft_repair_detail': [],
+            'ft_ncf_list': [],
+            'ft_ncf_detail': []
         }
         self.batch_size = 100
         self.dedup_method = 'ignore'
@@ -45,10 +47,10 @@ class FtDataPipeline:
 
     def process_item(self, item, spider):
         if isinstance(item, FtDataRepairDetailItem):
-            table_name = 'ft_repair_detail'
+            table_name = spider.table_name + '_detail'
         else:
             item = self._normalize_item(item, spider)
-            table_name = 'ft_repair_list'
+            table_name = spider.table_name + '_list'
         self.items_buffer[table_name].append(dict(item))
         if len(self.items_buffer[table_name]) >= self.batch_size:
             self._flush_buffer(table_name)

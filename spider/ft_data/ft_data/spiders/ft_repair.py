@@ -13,6 +13,7 @@ from spider.ft_data.ft_data.items import FtDataRepairListItem, FtDataRepairDetai
 class FtDataSpider(scrapy.Spider):
     name = "ft_repair"
     table_name = "ft_repair"
+    type = '维修手册'
     headers = {
         "sec-ch-ua-platform": "\"Windows\"",
         "Referer": "http://127.0.0.1:8000/pgm/top.html",
@@ -57,7 +58,7 @@ class FtDataSpider(scrapy.Spider):
             date = t.xpath('./@date').get()
             item['model'] = model_name
             item['year'] = date
-            item['type'] = '维修手册'
+            item['type'] = self.type
             # print(item)
             next_url = f'http://127.0.0.1:8000/manual/repair/control/{date}/toc-root.xml'
             yield scrapy.Request(
