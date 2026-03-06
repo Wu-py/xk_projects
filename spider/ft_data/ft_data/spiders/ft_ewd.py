@@ -72,7 +72,7 @@ class FtDataSpider(scrapy.Spider):
                 callback=self.parse3,
                 meta={'item': item}
             )
-            break
+            # break
 
     def parse3(self, response):
         '''
@@ -129,13 +129,13 @@ class FtDataSpider(scrapy.Spider):
             #     )
 
             if id == 'connlist':
-                self.get_file_id_url(id)
+                self.get_connlist_file_id_url(id)
                 next_url = f'http://127.0.0.1:8000/manual/ewd/contents/tree/{item["year"]}/tree-{id}.xml'
                 yield scrapy.Request(
                     url=next_url,
                     method='GET',
                     headers=self.headers,
-                    callback=self.parse_list,
+                    callback=self.parse_connlist,
                     dont_filter=True,
                     meta={'item': item, 'path_id': id}
                 )
@@ -190,6 +190,48 @@ class FtDataSpider(scrapy.Spider):
                     meta={'file_id': item['file_id']}
                 )
 
+    def parse_connlist(self, response):
+        '''
+        二级目录页
+        '''
+        for book in response.xpath('./book'):
+            book_name = book.xpath('./name/text()').get()
+            for book2 in book.xpath('./book'):
+                item = copy.deepcopy(response.meta['item'])
+                item['title_2'] = book_name
+                item['title_3'] = book2.xpath('./name/text()').get()
+                id = book2.xpath('./@id').get()
+                next_url = f'http://127.0.0.1:8000/manual/ewd/contents/tree/{item["year"]}/tree-{id}.xml'
+                yield scrapy.Request(
+                    url=next_url,
+                    method='GET',
+                    headers=self.headers,
+                    callback=self.parse_connlist_2,
+                    dont_filter=True,
+                    meta={'item': item}
+                )
+
+    def parse_connlist_2(self, response):
+        '''
+        二级目录页
+        '''
+        for note in response.xpath('//note'):
+            item = copy.deepcopy(response.meta['item'])
+            item['title_4'] = note.xpath('./name/text()').get()
+            code = note.xpath('./@code').get()
+            file_url_name = self.file_id_url['connlist'][code]
+            file_id = item['model'] + '_' + file_url_name
+            item['file_id'] = file_id
+            yield item
+
+            next_url = f'http://127.0.0.1:8000/manual/ewd/contents/connector/figsvg/{file_url_name}.svg'
+            yield scrapy.Request(
+                url=next_url,
+                method='GET',
+                headers=self.headers,
+                callback=self.parse_detail,
+                meta={'file_id': item['file_id']}
+            )
 
     def parse_intro(self, response):
         '''
@@ -266,6 +308,19 @@ class FtDataSpider(scrapy.Spider):
                 id = system.xpath('./name/@code')[0]
                 file_url_name = system.xpath('./fig/text()')[0]
                 self.file_id_url[type].update({id: file_url_name})
+
+    def get_connlist_file_id_url(self, type):
+        if not self.file_id_url[type]:
+            url = f'http://127.0.0.1:8000/manual/ewd/contents/connector/parts.xml'
+            response = requests.get(url)
+            html = etree.HTML(response.content)
+            CodedItems = html.xpath('//codeditem[fig[normalize-space()]]')
+
+            for CodedItem in CodedItems:
+                code = CodedItem.xpath('./@code')[0]
+                print(code)
+                file_url_name = CodedItem.xpath('./fig/text()')[0]
+                self.file_id_url[type].update({code: file_url_name})
 
 if __name__ == '__main__':
     print(urljoin('http://127.0.0.1:8000/manual/ewd/', '../../../../../system/js/ewd/fig/svgfig.js'))
