@@ -23,6 +23,10 @@ class FtDataSpider(scrapy.Spider):
         "sec-ch-ua": "\"Not:A-Brand\";v=\"99\", \"Google Chrome\";v=\"145\", \"Chromium\";v=\"145\"",
         "sec-ch-ua-mobile": "?0"
     }
+
+    def __init__(self, *args, **kwargs):
+        super(FtDataSpider, self).__init__(*args, **kwargs)
+
     def start_requests(self):
         url = 'http://127.0.0.1:8000/pgm/js/top.js'
         yield scrapy.Request(

@@ -30,7 +30,6 @@ class FtDataSpider(scrapy.Spider):
     
     def __init__(self, *args, **kwargs):
         super(FtDataSpider, self).__init__(*args, **kwargs)
-        print(self.directory)
 
 
     def start_requests(self):
