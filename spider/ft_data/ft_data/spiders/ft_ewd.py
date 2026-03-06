@@ -128,14 +128,26 @@ class FtDataSpider(scrapy.Spider):
             #         meta={'item': item, 'path_id': id}
             #     )
 
-            if id == 'connlist':
-                self.get_connlist_file_id_url(id)
+            # if id == 'connlist':
+            #     self.get_connlist_file_id_url(id)
+            #     next_url = f'http://127.0.0.1:8000/manual/ewd/contents/tree/{item["year"]}/tree-{id}.xml'
+            #     yield scrapy.Request(
+            #         url=next_url,
+            #         method='GET',
+            #         headers=self.headers,
+            #         callback=self.parse_connlist,
+            #         dont_filter=True,
+            #         meta={'item': item, 'path_id': id}
+            #     )
+
+            if id == 'overall':
+                self.get_file_id_url(id)
                 next_url = f'http://127.0.0.1:8000/manual/ewd/contents/tree/{item["year"]}/tree-{id}.xml'
                 yield scrapy.Request(
                     url=next_url,
                     method='GET',
                     headers=self.headers,
-                    callback=self.parse_connlist,
+                    callback=self.parse_overall,
                     dont_filter=True,
                     meta={'item': item, 'path_id': id}
                 )
@@ -167,6 +179,31 @@ class FtDataSpider(scrapy.Spider):
                     callback=self.parse_detail,
                     meta={'file_id': file_id}
                 )
+
+    def parse_overall(self, response):
+        '''
+        二级目录页
+        '''
+        path_id = response.meta['path_id']
+        for book in response.xpath('.//book'):
+            book_name = book.xpath('./name/text()').get()
+            for note in book.xpath('./note'):
+                item = copy.deepcopy(response.meta['item'])
+                item['title_2'] = book_name
+                item['title_3'] = note.xpath('./name/text()').get()
+                id = note.xpath('./@id').get()
+                file_id = item['model'] + '_' + id
+                item['file_id'] = file_id
+                yield item
+
+                file_name = self.file_id_url[path_id][id]
+                file_url = f'http://127.0.0.1:8000/manual/ewd/contents/{path_id}/pdf/{file_name}.pdf'
+
+                item_detail = FtDataRepairDetailItem()
+                item_detail['file_id'] = file_id
+                item_detail['content'] = file_url
+                item_detail['content_type'] = 'pdf'
+                yield item_detail
 
     def parse_fuselist(self, response):
         '''
@@ -220,7 +257,7 @@ class FtDataSpider(scrapy.Spider):
             item['title_4'] = note.xpath('./name/text()').get()
             code = note.xpath('./@code').get()
             file_url_name = self.file_id_url['connlist'][code]
-            file_id = item['model'] + '_' + file_url_name
+            file_id = item['model'] + '_' + code
             item['file_id'] = file_id
             yield item
 
@@ -303,7 +340,10 @@ class FtDataSpider(scrapy.Spider):
             url = f'http://127.0.0.1:8000/manual/ewd/contents/{type}/title.xml'
             response = requests.get(url)
             html = etree.HTML(response.content)
-            Systems = html.xpath(f'//{type}')
+            if type == 'overall':
+                Systems = html.xpath(f'//system')
+            else:
+                Systems = html.xpath(f'//{type}')
             for system in Systems:
                 id = system.xpath('./name/@code')[0]
                 file_url_name = system.xpath('./fig/text()')[0]
