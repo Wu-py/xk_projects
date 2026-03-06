@@ -19,7 +19,9 @@ class FtDataPipeline:
             'ft_repair_list': [],
             'ft_repair_detail': [],
             'ft_ncf_list': [],
-            'ft_ncf_detail': []
+            'ft_ncf_detail': [],
+            'ft_ewd_list': [],
+            'ft_ewd_detail': []
         }
         self.batch_size = 100
         self.dedup_method = 'ignore'

@@ -26,3 +26,4 @@ class FtDataRepairDetailItem(scrapy.Item):
     # define the fields for your item here like:
     file_id = scrapy.Field()
     content = scrapy.Field()
+    content_type = scrapy.Field()
