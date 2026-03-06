@@ -87,11 +87,6 @@ class ChangyiDianluLisSpider(scrapy.Spider):
             if (div := tree.xpath('//div[@id="tool-container"]')) and div[0].getparent() is not None:
                 div[0].getparent().remove(div[0])
 
-            targets = tree.xpath('//a')
-            for node in targets:
-                parent = node.getparent()
-                if parent is not None:
-                    parent.remove(node)
 
             ChangyiDianluLisSpider.absolutize_urls(tree, response.url)
 
