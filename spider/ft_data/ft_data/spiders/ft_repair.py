@@ -5,6 +5,7 @@ from copy import deepcopy
 from urllib.parse import urljoin
 
 import pymysql
+import requests
 import scrapy
 from lxml import etree
 from spider.ft_data.ft_data.items import FtDataRepairListItem, FtDataRepairDetailItem
@@ -113,7 +114,7 @@ class FtDataSpider(scrapy.Spider):
         item['title_4'] = 'DIAGNOSTIC TROUBLE CODE CHART'
         item['title_5'] = para.xpath('./@dtccode').get()
         dtccode_id = para.xpath('./@id').get()
-        item['file_id'] = dtccode_id
+        item['file_id'] = dtccode_id + '_flow'
         # http://127.0.0.1:8000/manual/repair/contents/flow/RM1000000004C0M_flow.html
         file_url = f'http://127.0.0.1:8000/manual/repair/contents/flow/{dtccode_id}_flow.html'
         yield item
@@ -201,6 +202,15 @@ class FtDataSpider(scrapy.Spider):
                     elem.set(attr, absolute_url)
 
 
+if __name__ == '__main__':
+    response = requests.get('http://127.0.0.1:8000/manual/repair/contents/RM10000000049QZ.html')
+
+    parser = etree.HTMLParser()
+    tree = etree.fromstring(response.content, parser)
+
+    FtDataSpider.absolutize_urls(tree, response.url)
+    new_html = etree.tostring(tree, encoding='unicode', method='html')
+    print(new_html)
 
 
 
