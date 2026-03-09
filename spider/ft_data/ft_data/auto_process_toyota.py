@@ -22,7 +22,7 @@ def get_zip_files(directory):
         return []
 
     files = [os.path.join(directory, f) for f in os.listdir(directory) if f.lower().endswith('.zip')]
-    return sorted(files)
+    return sorted(files)[:1]
 
 
 def extract_zip(zip_path, extract_to):
@@ -110,10 +110,10 @@ def run_process(work_dir, folder_name):
         result = subprocess.run(
             [sys.executable, SPIDER_SCRIPT, folder_name],
             cwd=os.path.dirname(SPIDER_SCRIPT),
-            # capture_output=True,
-            # text=True,
-            # encoding='utf-8',
-            # errors='ignore',
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='ignore',
             env=env,
             timeout=1800  # 可选：设置超时时间，防止脚本卡死 (单位秒)
         )

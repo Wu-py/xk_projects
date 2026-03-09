@@ -10,7 +10,6 @@ def run_single_crawler():
         return False
 
     directory = sys.argv[1]
-    spider_name = sys.argv[2] if len(sys.argv) > 2 else 'ft_ewd'
 
     try:
         settings = get_project_settings()
@@ -18,7 +17,9 @@ def run_single_crawler():
         # settings.set('...', ...)
 
         process = CrawlerProcess(settings)
-        process.crawl(spider_name, directory=directory)
+        process.crawl('ft_repair', directory=directory)
+        process.crawl('ft_ncf', directory=directory)
+        process.crawl('ft_ewd', directory=directory)
         process.start()
         return True
     except Exception as e:

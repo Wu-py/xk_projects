@@ -8,7 +8,7 @@ import os
 def run_crawler_subprocess(directory):
     # 调用独立的 worker.py 脚本
     # sys.executable 确保使用当前相同的 Python 解释器
-    cmd = [sys.executable, 'worker.py', directory, 'ft_repair']
+    cmd = [sys.executable, 'worker.py', directory]
 
     try:
         # 运行子进程，等待完成
