@@ -33,7 +33,7 @@ MYSQL_USER = 'root'
 MYSQL_PASSWORD = 'a12345'
 MYSQL_CHARSET = 'utf8mb4'
 
-MYSQL_BATCH_SIZE = 100
+MYSQL_BATCH_SIZE = 1000
 MYSQL_DEDUPLICATE_METHOD = 'ignore'  # 可选: 'ignore', 'replace', 'query'
 
 # Disable cookies (enabled by default)

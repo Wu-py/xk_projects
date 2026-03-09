@@ -8,7 +8,7 @@ import os
 def run_crawler_subprocess(directory):
     # 调用独立的 worker.py 脚本
     # sys.executable 确保使用当前相同的 Python 解释器
-    cmd = [sys.executable, 'worker.py', directory, 'ft_ewd']
+    cmd = [sys.executable, 'worker.py', directory, 'ft_repair']
 
     try:
         # 运行子进程，等待完成
@@ -25,7 +25,9 @@ def run_crawler_subprocess(directory):
 
 
 if __name__ == '__main__':
-    directories = ['N0037', 'N0038']
+
+    # directories = ['N0037', 'N0038']
+    directories = [sys.argv[1]]
     MAX_CONCURRENT = 1  # 控制同时运行的 subprocess 数量
 
     print(f"开始运行，总任务数: {len(directories)}, 最大并发数: {MAX_CONCURRENT}")

@@ -4,6 +4,7 @@ import subprocess
 import shutil
 import time
 import sys
+import locale
 
 # ================= 配置区域 =================
 SOURCE_DIR = r"D:\新款海外版（丰田）"
@@ -21,7 +22,7 @@ def get_zip_files(directory):
         return []
 
     files = [os.path.join(directory, f) for f in os.listdir(directory) if f.lower().endswith('.zip')]
-    return sorted(files)[:1]
+    return sorted(files)[:2]
 
 
 def extract_zip(zip_path, extract_to):
@@ -37,23 +38,15 @@ def extract_zip(zip_path, extract_to):
 
 
 def get_target_directory_v3(base_path):
-    """
-    【核心逻辑修正】
-    直接获取第一层目录作为目标目录。
-    逻辑：base_path -> [第一层目录 (目标)]
-    """
+    """获取第一层目录作为目标目录"""
     try:
-        # 获取 base_path 下所有的子文件夹
         items = [f for f in os.listdir(base_path) if os.path.isdir(os.path.join(base_path, f))]
 
         if not items:
             print("[错误] 解压后未找到任何文件夹。")
             return None
 
-        # 假设解压后只生成一个顶层文件夹，取第一个
-        # 如果有多个，通常取最新创建的或按名称排序的第一个，这里取列表第一个
         target_dir = os.path.join(base_path, items[0])
-
         print(f"  [定位] 目标工作目录 (第一层): {os.path.basename(target_dir)}")
         print(f"  [路径]: {target_dir}")
 
@@ -65,30 +58,43 @@ def get_target_directory_v3(base_path):
 
 
 def run_process(work_dir, folder_name):
-    """启动服务器 -> 运行脚本 -> 关闭服务器"""
+    """启动服务器 -> 运行脚本 -> 关闭服务器 (已修复编码问题)"""
     http_proc = None
     try:
         # 1. 启动 HTTP Server
         print(f"[启动] HTTP Server (端口 {HTTP_PORT}) @ {work_dir}")
+
+        # 创建独立的环境变量副本，设置 Python 输出编码为 UTF-8
+        env = os.environ.copy()
+        env['PYTHONIOENCODING'] = 'utf-8'
+
         http_proc = subprocess.Popen(
             [sys.executable, "-m", "http.server", str(HTTP_PORT)],
             cwd=work_dir,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            stderr=subprocess.DEVNULL,
+            env=env
         )
-        time.sleep(2)  # 等待启动
+        time.sleep(2)
 
         if http_proc.poll() is not None:
             raise Exception("HTTP Server 启动失败")
 
         # 2. 运行爬虫脚本
-        # 入参为当前目录文件名 (即第一层文件夹名)
         print(f"[执行] 运行脚本: {os.path.basename(SPIDER_SCRIPT)}, 参数: {folder_name}")
+
+        # 关键修复：
+        # encoding='utf-8': 强制使用 UTF-8 解码输出
+        # errors='ignore': 如果遇到无法解码的字符，直接忽略，防止崩溃
         result = subprocess.run(
             [sys.executable, SPIDER_SCRIPT, folder_name],
             cwd=os.path.dirname(SPIDER_SCRIPT),
-            capture_output=True,
-            text=True
+            # capture_output=True,
+            # text=True,
+            # encoding='utf-8',
+            # errors='ignore',
+            env=env,
+            timeout=1800  # 可选：设置超时时间，防止脚本卡死 (单位秒)
         )
 
         if result.returncode == 0:
@@ -96,15 +102,19 @@ def run_process(work_dir, folder_name):
         else:
             print(f"[警告] 脚本执行结束 (返回码:{result.returncode})。")
             if result.stderr:
-                # 打印部分错误信息以便调试
                 err_msg = result.stderr.strip()
-                if len(err_msg) > 200:
-                    err_msg = err_msg[:200] + "..."
+                if len(err_msg) > 300:
+                    err_msg = err_msg[:300] + "... (日志过长已截断)"
                 print(f"       错误详情: {err_msg}")
 
         return True
+    except subprocess.TimeoutExpired:
+        print("[错误] 脚本执行超时！")
+        return False
     except Exception as e:
         print(f"[错误] 执行过程异常: {e}")
+        import traceback
+        traceback.print_exc()
         return False
     finally:
         # 3. 关闭 HTTP Server
@@ -120,10 +130,9 @@ def run_process(work_dir, folder_name):
 
 def main():
     print("=" * 60)
-    print("开始批量处理 (逻辑：第一层目录即为目标)")
+    print("开始批量处理 (逻辑：第一层目录即为目标 | 编码优化版)")
     print("=" * 60)
 
-    # 确保解压根目录存在
     os.makedirs(EXTRACT_ROOT, exist_ok=True)
 
     zip_files = get_zip_files(SOURCE_DIR)
@@ -137,11 +146,9 @@ def main():
     for i, zip_file in enumerate(zip_files, 1):
         print(f"\n--- [{i}/{len(zip_files)}] {os.path.basename(zip_file)} ---")
 
-        # 1. 解压
         if not extract_zip(zip_file, EXTRACT_ROOT):
             continue
 
-        # 2. 定位目录 (核心修改点：获取第一层)
         target_dir = get_target_directory_v3(EXTRACT_ROOT)
 
         if not target_dir:
@@ -150,10 +157,8 @@ def main():
 
         folder_name = os.path.basename(target_dir)
 
-        # 3. 执行任务 (启动Server -> 跑脚本 -> 停Server)
         run_process(target_dir, folder_name)
 
-        # 4. 清理 (删除该第一层目录)
         if os.path.exists(target_dir):
             try:
                 shutil.rmtree(target_dir)
@@ -169,6 +174,13 @@ def main():
 
 
 if __name__ == "__main__":
+    # 设置全局默认编码为 UTF-8 (针对部分旧版 Python 环境)
+    # 注意：这在某些系统上可能需要重启终端才生效，但在 subprocess 中我们已通过 env 控制
+    try:
+        locale.setlocale(locale.LC_ALL, '')
+    except:
+        pass
+
     try:
         main()
     except KeyboardInterrupt:
