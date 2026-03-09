@@ -22,19 +22,38 @@ def get_zip_files(directory):
         return []
 
     files = [os.path.join(directory, f) for f in os.listdir(directory) if f.lower().endswith('.zip')]
-    return sorted(files)[:2]
+    return sorted(files)
 
 
 def extract_zip(zip_path, extract_to):
-    """解压 zip 文件"""
+    """解压 zip 文件，并将内容放入以 zip 文件名命名的一级目录中"""
+    print(f"正在处理: {zip_path}")
+
     try:
+        # 1. 获取不带扩展名的文件名 (例如: "archive.zip" -> "archive")
+        zip_filename = os.path.basename(zip_path)
+        if zip_filename.lower().endswith('.zip'):
+            dir_name = zip_filename[:-4]
+        else:
+            dir_name = zip_filename
+
+        # 2. 构建新的解压目标路径 (extract_to / dir_name)
+        # 使用 os.path.join 确保路径分隔符正确
+        final_extract_path = os.path.join(extract_to, dir_name)
+
+        # 3. 确保目标父目录存在 (虽然 extractall 通常会处理，但显式创建更稳妥)
+        os.makedirs(final_extract_path, exist_ok=True)
+
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(extract_to)
-        print(f"[成功] 已解压: {os.path.basename(zip_path)}")
-        return True
+            # 4. 解压到新的子目录中
+            zip_ref.extractall(final_extract_path)
+
+        print(f"[成功] 已解压: {zip_filename} -> {final_extract_path}")
+        return True, final_extract_path
+
     except Exception as e:
         print(f"[失败] 解压出错: {e}")
-        return False
+        return False, ''
 
 
 def get_target_directory_v3(base_path):
@@ -45,8 +64,10 @@ def get_target_directory_v3(base_path):
         if not items:
             print("[错误] 解压后未找到任何文件夹。")
             return None
-
-        target_dir = os.path.join(base_path, items[0])
+        if len(items) == 1:
+            target_dir = os.path.join(base_path, items[0])
+        else:
+            target_dir = base_path
         print(f"  [定位] 目标工作目录 (第一层): {os.path.basename(target_dir)}")
         print(f"  [路径]: {target_dir}")
 
@@ -146,23 +167,24 @@ def main():
     for i, zip_file in enumerate(zip_files, 1):
         print(f"\n--- [{i}/{len(zip_files)}] {os.path.basename(zip_file)} ---")
 
-        if not extract_zip(zip_file, EXTRACT_ROOT):
+        _, final_extract_path = extract_zip(zip_file, EXTRACT_ROOT)
+        if not _:
             continue
 
-        target_dir = get_target_directory_v3(EXTRACT_ROOT)
+        target_dir = get_target_directory_v3(final_extract_path)
 
         if not target_dir:
             print("[跳过] 无法定位目标目录。")
             continue
 
-        folder_name = os.path.basename(target_dir)
+        folder_name = os.path.basename(target_dir).split(' ')[0]
 
         run_process(target_dir, folder_name)
 
-        if os.path.exists(target_dir):
+        if os.path.exists(final_extract_path):
             try:
-                shutil.rmtree(target_dir)
-                print(f"[清理] 已删除目录: {os.path.basename(target_dir)}")
+                shutil.rmtree(final_extract_path)
+                print(f"[清理] 已删除目录: {os.path.basename(final_extract_path)}")
             except Exception as e:
                 print(f"[错误] 删除目录失败: {e}")
         else:
@@ -190,3 +212,7 @@ if __name__ == "__main__":
         import traceback
 
         traceback.print_exc()
+
+
+# if __name__ == '__main__':
+#     extract_zip(r'D:\新款海外版（丰田）\N00005 AQUA NHP1 2011-2020 日文.zip', r'D:\ft_data')
