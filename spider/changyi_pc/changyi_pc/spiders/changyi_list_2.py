@@ -49,7 +49,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
         self.cursor = self.connection.cursor()
 
         with self.connection.cursor() as cursor:
-            cursor.execute("SELECT * from changyi_chex where list_type = 2 and note is null and list_key not in (select distinct list_key from changyi_list) limit 1")
+            cursor.execute("SELECT * from changyi_chex where list_type = 2 and note is null and list_key not in (select distinct list_key from changyi_list) limit 20")
             rows = cursor.fetchall()
             for i in rows:
                 # print(i)
@@ -249,6 +249,7 @@ class ChangyiDianluLisSpider(scrapy.Spider):
                 "direction": str(i['direction']),
                 "view": str(i['view']),
             }
+            print(data)
             yield scrapy.FormRequest(
                 url=self.start_urls[0],
                 method='POST',
