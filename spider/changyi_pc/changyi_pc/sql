@@ -1,0 +1,27 @@
+
+统计爬取完成情况
+SELECT COUNT(*) AS completed_models_count
+FROM (
+    SELECT
+        l.list_key,
+        COUNT(l.id) AS total_needed,
+        COUNT(d.filepath) AS total_crawled
+    FROM changyi_list l
+    LEFT JOIN changyi_detail d ON l.filepath = d.filepath
+    WHERE l.list_key IS NOT NULL AND l.list_key != ''
+    GROUP BY l.list_key
+    HAVING total_needed > 0 AND total_needed = total_crawled
+) AS subquery;
+
+
+select t1.*, a.total_needed from changyi_chex t1 inner join (
+SELECT
+    l.list_key,
+    COUNT(l.id) AS total_needed,
+    COUNT(d.filepath) AS total_crawled
+FROM changyi_list l
+LEFT JOIN changyi_detail d ON l.filepath = d.filepath
+WHERE l.list_key IS NOT NULL AND l.list_key != ''
+GROUP BY l.list_key
+HAVING total_needed > 0 AND total_needed = total_crawled)
+a on t1.list_key = a.list_key
