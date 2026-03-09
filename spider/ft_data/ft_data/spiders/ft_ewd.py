@@ -258,8 +258,9 @@ class FtDataSpider(scrapy.Spider):
         '''
         for note in response.xpath('//note'):
             item = copy.deepcopy(response.meta['item'])
-            item['title_4'] = note.xpath('./name/text()').get()
+            title_4 = note.xpath('./name/text()').get()
             code = note.xpath('./@code').get()
+            item['title_4'] = title_4 + ' / ' + code
             file_url_name = self.file_id_url['connlist'][code]
             file_id = self.directory + '_' + code
             item['file_id'] = file_id
@@ -360,7 +361,9 @@ class FtDataSpider(scrapy.Spider):
 
             for CodedItem in CodedItems:
                 code = CodedItem.xpath('./@code')[0]
-                print(code)
+                subcode = CodedItem.xpath('./@subcode')
+                if subcode:
+                    code = code + '-' + subcode[0]
                 file_url_name = CodedItem.xpath('./fig/text()')[0]
                 self.file_id_url[type].update({code: file_url_name})
 
