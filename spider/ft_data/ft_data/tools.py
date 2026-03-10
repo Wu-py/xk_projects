@@ -1,4 +1,5 @@
 import base64
+import time
 
 import requests
 
@@ -33,19 +34,48 @@ def get_filename_from_url(url):
     # print(f"后缀: {suffix}")
     return full_filename, suffix
 
-def upload_file_to_oss(content, file_name, prefix="crawler"):
-    payload = { "filename": file_name, "content": content, "prefix": prefix}
-    headers = { "content-type": "application/json" }
-    resp = requests.post( "https://h5.mythinkcar.com/fcrm-api/third_service/upload-file-by-crawler", json=payload, headers=headers, timeout=60)
-    data = resp.json()
-    if data["code"] == 0:
-        data['data'] = unquote(data['data'])
-        print("上传成功，URL:", data["data"])
-        return True, data["data"]
 
-    else:
-        print("上传失败：", data["msg"])
-        return False, None
+_upload_session: requests.Session | None = None
+
+
+def _get_upload_session() -> requests.Session:
+    global _upload_session
+    if _upload_session is None:
+        session = requests.Session()
+        session.headers.update({"Connection": "keep-alive"})
+        _upload_session = session
+    return _upload_session
+
+
+def upload_file_to_oss(content, file_name, prefix="crawler", max_retries: int = 3, retry_delay: float = 2.0):
+    payload = {"filename": file_name, "content": content, "prefix": prefix}
+    headers = {"content-type": "application/json"}
+    url = "https://h5.mythinkcar.com/fcrm-api/third_service/upload-file-by-crawler"
+
+    session = _get_upload_session()
+
+    last_error = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            resp = session.post(url, json=payload, headers=headers, timeout=60)
+            data = resp.json()
+
+            if data.get("code") == 0:
+                data["data"] = unquote(data["data"])
+                print("上传成功，URL:", data["data"])
+                return True, data["data"]
+            else:
+                last_error = data.get("msg", "未知错误")
+                print(f"第{attempt}次上传失败：", last_error)
+        except requests.RequestException as e:
+            last_error = str(e)
+            print(f"第{attempt}次上传异常：", last_error)
+
+        if attempt < max_retries:
+            time.sleep(retry_delay)
+
+    print("上传最终失败：", last_error)
+    return False, None
 
 def get_response_encodeing(response):
     results = from_bytes(response.content)
