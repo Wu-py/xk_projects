@@ -1,19 +1,28 @@
+import base64
 import copy
+import datetime
+import hashlib
 import re
 import urllib
 from copy import deepcopy
 from urllib.parse import urljoin
 
 import pymysql
+import requests
 import scrapy
+from charset_normalizer import from_bytes
 from lxml import etree
 from spider.ft_data.ft_data.items import FtDataRepairListItem, FtDataRepairDetailItem
+from spider.ft_data.ft_data.tools import get_filename_from_url, upload_file_to_oss
 
 
 class FtDataSpider(scrapy.Spider):
     name = "ft_ncf"
     table_name = "ft_ncf"
     type = '新车特征'
+    file_name_md5_list = []
+    oss_prefix = 'cl_ft'
+    oss_baseurl = 'https://xingka-car-data.oss-cn-shenzhen.aliyuncs.com'
     headers = {
         "sec-ch-ua-platform": "\"Windows\"",
         "Referer": "http://127.0.0.1:8000/pgm/top.html",
@@ -134,14 +143,13 @@ class FtDataSpider(scrapy.Spider):
         parser = etree.HTMLParser()
         tree = etree.fromstring(response.body, parser)
 
-        FtDataSpider.absolutize_urls(tree, response.url)
+        self.absolutize_urls(tree, response.url)
         new_html = etree.tostring(tree, encoding='unicode', method='html')
         item_detail['content'] = new_html
         yield item_detail
 
 
-    @staticmethod
-    def absolutize_urls(tree, base_url):
+    def absolutize_urls(self, tree, base_url):
         """
         将 HTML 文档中所有相对 URL 补全为绝对 URL。
 
@@ -165,7 +173,37 @@ class FtDataSpider(scrapy.Spider):
                         ('http://', 'https://', 'mailto:', 'tel:', '#', 'javascript:')):
                     # 补全为绝对 URL
                     absolute_url = urljoin(base_url, current_value)
-                    elem.set(attr, absolute_url)
+                    oss_url = self.get_oss_url(absolute_url)
+                    if oss_url:
+                        elem.set(attr, oss_url)
+
+    def get_oss_url(self, url):
+        absolute_url = url
+
+        file_name, suffix = get_filename_from_url(absolute_url)
+        if suffix in ['.js', '.css']:
+            file_name_md5 = hashlib.md5(('ft' + file_name).encode('utf-8')).hexdigest() + suffix
+        else:
+            file_name_md5 = hashlib.md5(('ft' + self.directory + file_name).encode('utf-8')).hexdigest() + suffix
+        if file_name_md5 not in self.file_name_md5_list:
+            print(absolute_url)
+            file_response = requests.get(absolute_url)
+            if suffix in ['.svg', '.js', '.css']:
+                response_text = file_response.content.decode(self.get_response_encodeing(file_response))
+            else:
+                response_text = base64.b64encode(file_response.content).decode()
+            _, oss_url = upload_file_to_oss(response_text, file_name_md5, prefix=self.oss_prefix)
+
+            if _:
+                self.file_name_md5_list.append(file_name_md5)
+        else:
+            oss_url = self.oss_baseurl + '/' + self.oss_prefix + '/' + datetime.date.today().strftime('%Y-%m-%d') + '/' + file_name_md5
+        return oss_url
+
+    def get_response_encodeing(self, response):
+        results = from_bytes(response.content)
+        if results.best():
+            return results.best().encoding
 
 
 
