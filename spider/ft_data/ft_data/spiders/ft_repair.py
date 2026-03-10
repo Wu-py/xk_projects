@@ -205,11 +205,11 @@ class FtDataSpider(scrapy.Spider):
                         ('http://', 'https://', 'mailto:', 'tel:', '#', 'javascript:')):
                     # 补全为绝对 URL
                     absolute_url = urljoin(base_url, current_value)
-                    oss_url = self.get_oss_ul(absolute_url)
+                    oss_url = self.get_oss_url(absolute_url)
                     if oss_url:
                         elem.set(attr, oss_url)
 
-    def get_oss_ul(self, url):
+    def get_oss_url(self, url):
         absolute_url = url
 
         file_name, suffix = get_filename_from_url(absolute_url)
