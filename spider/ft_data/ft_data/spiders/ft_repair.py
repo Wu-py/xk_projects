@@ -1,5 +1,6 @@
 import base64
 import copy
+import datetime
 import hashlib
 import re
 import urllib
@@ -204,27 +205,32 @@ class FtDataSpider(scrapy.Spider):
                         ('http://', 'https://', 'mailto:', 'tel:', '#', 'javascript:')):
                     # 补全为绝对 URL
                     absolute_url = urljoin(base_url, current_value)
-
-                    file_name, suffix = get_filename_from_url(absolute_url)
-                    if suffix in ['.js', '.css']:
-                        file_name_md5 = hashlib.md5(('ft' + file_name).encode('utf-8')).hexdigest() + suffix
-                    else:
-                        file_name_md5 = hashlib.md5(('ft' + self.directory + file_name).encode('utf-8')).hexdigest() + suffix
-                    if file_name_md5 not in self.file_name_md5_list:
-                        print(absolute_url)
-                        file_response = requests.get(absolute_url)
-                        if suffix in ['.svg', '.js', '.css']:
-                            response_text = file_response.content.decode(self.get_response_encodeing(file_response))
-                        else:
-                            response_text = base64.b64encode(file_response.content).decode()
-                        _, oss_url = upload_file_to_oss(response_text, file_name_md5, prefix=self.oss_prefix)
-
-                        if _:
-                            elem.set(attr, oss_url)
-                        self.file_name_md5_list.append(file_name_md5)
-                    else:
-                        oss_url = self.oss_baseurl + '/' + self.oss_prefix + '/' + file_name_md5 + suffix
+                    oss_url = self.get_oss_ul(absolute_url)
+                    if oss_url:
                         elem.set(attr, oss_url)
+
+    def get_oss_ul(self, url):
+        absolute_url = url
+
+        file_name, suffix = get_filename_from_url(absolute_url)
+        if suffix in ['.js', '.css']:
+            file_name_md5 = hashlib.md5(('ft' + file_name).encode('utf-8')).hexdigest() + suffix
+        else:
+            file_name_md5 = hashlib.md5(('ft' + self.directory + file_name).encode('utf-8')).hexdigest() + suffix
+        if file_name_md5 not in self.file_name_md5_list:
+            print(absolute_url)
+            file_response = requests.get(absolute_url)
+            if suffix in ['.svg', '.js', '.css']:
+                response_text = file_response.content.decode(self.get_response_encodeing(file_response))
+            else:
+                response_text = base64.b64encode(file_response.content).decode()
+            _, oss_url = upload_file_to_oss(response_text, file_name_md5, prefix=self.oss_prefix)
+
+            if _:
+                self.file_name_md5_list.append(file_name_md5)
+        else:
+            oss_url = self.oss_baseurl + '/' + self.oss_prefix + '/' + datetime.date.today().strftime('%Y-%m-%d') + '/' + file_name_md5
+        return oss_url
 
     def get_response_encodeing(self, response):
         results = from_bytes(response.content)
