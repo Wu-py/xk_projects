@@ -1,20 +1,26 @@
+import base64
 import copy
+import hashlib
 import re
 import urllib
 from copy import deepcopy
 from urllib.parse import urljoin
-
+from charset_normalizer import from_bytes
 import pymysql
 import requests
 import scrapy
 from lxml import etree
 from spider.ft_data.ft_data.items import FtDataRepairListItem, FtDataRepairDetailItem
+from spider.ft_data.ft_data.tools import upload_file_to_oss, get_filename_from_url
 
 
 class FtDataSpider(scrapy.Spider):
     name = "ft_repair"
     table_name = "ft_repair"
     type = '维修手册'
+    file_name_md5_list = []
+    oss_prefix = 'cl_ft'
+    oss_baseurl = 'https://xingka-car-data.oss-cn-shenzhen.aliyuncs.com'
     headers = {
         "sec-ch-ua-platform": "\"Windows\"",
         "Referer": "http://127.0.0.1:8000/pgm/top.html",
@@ -168,14 +174,13 @@ class FtDataSpider(scrapy.Spider):
         parser = etree.HTMLParser()
         tree = etree.fromstring(response.body, parser)
 
-        FtDataSpider.absolutize_urls(tree, response.url)
+        self.absolutize_urls(tree, response.url, item_detail['file_id'])
         new_html = etree.tostring(tree, encoding='unicode', method='html')
         item_detail['content'] = new_html
         yield item_detail
 
 
-    @staticmethod
-    def absolutize_urls(tree, base_url):
+    def absolutize_urls(self, tree, base_url, file_id):
         """
         将 HTML 文档中所有相对 URL 补全为绝对 URL。
 
@@ -199,17 +204,43 @@ class FtDataSpider(scrapy.Spider):
                         ('http://', 'https://', 'mailto:', 'tel:', '#', 'javascript:')):
                     # 补全为绝对 URL
                     absolute_url = urljoin(base_url, current_value)
-                    elem.set(attr, absolute_url)
 
+                    file_name, suffix = get_filename_from_url(absolute_url)
+                    if suffix in ['.js', '.css']:
+                        file_name_md5 = hashlib.md5(('ft' + file_name).encode('utf-8')).hexdigest() + suffix
+                    else:
+                        file_name_md5 = hashlib.md5(('ft' + self.directory + file_name).encode('utf-8')).hexdigest() + suffix
+                    if file_name_md5 not in self.file_name_md5_list:
+                        print(absolute_url)
+                        file_response = requests.get(absolute_url)
+                        if suffix in ['.svg', '.js', '.css']:
+                            response_text = file_response.content.decode(self.get_response_encodeing(file_response))
+                        else:
+                            response_text = base64.b64encode(file_response.content).decode()
+                        _, oss_url = upload_file_to_oss(response_text, file_name_md5, prefix=self.oss_prefix)
+
+                        if _:
+                            elem.set(attr, oss_url)
+                        self.file_name_md5_list.append(file_name_md5)
+                    else:
+                        oss_url = self.oss_baseurl + '/' + self.oss_prefix + '/' + file_name_md5 + suffix
+                        elem.set(attr, oss_url)
+
+    def get_response_encodeing(self, response):
+        results = from_bytes(response.content)
+        if results.best():
+            return results.best().encoding
 
 if __name__ == '__main__':
-    response = requests.get('http://127.0.0.1:8000/manual/repair/contents/RM10000000049QZ.html')
+    response = requests.get('http://localhost:8000/manual/repair/contents/RM1000000003GIQ.html')
 
     parser = etree.HTMLParser()
     tree = etree.fromstring(response.content, parser)
-
-    FtDataSpider.absolutize_urls(tree, response.url)
+    FtDataSpider = FtDataSpider()
+    FtDataSpider.absolutize_urls(tree, response.url, 'RM1000000003GIQ')
+    tree2 = copy.deepcopy(tree)
     new_html = etree.tostring(tree, encoding='unicode', method='html')
+    # new_html = etree.tostring(tree2, encoding='unicode', method='html')
     print(new_html)
 
 
