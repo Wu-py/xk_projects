@@ -13,7 +13,7 @@ import scrapy
 from charset_normalizer import from_bytes
 from lxml import etree
 from spider.ft_data.ft_data.items import FtDataRepairListItem, FtDataRepairDetailItem
-from spider.ft_data.ft_data.tools import get_filename_from_url, upload_file_to_oss
+from spider.ft_data.ft_data.tools import get_filename_from_url, upload_file_to_oss, upload_file_to_oss_async
 
 
 class FtDataSpider(scrapy.Spider):
@@ -192,10 +192,9 @@ class FtDataSpider(scrapy.Spider):
                 response_text = file_response.content.decode(self.get_response_encodeing(file_response))
             else:
                 response_text = base64.b64encode(file_response.content).decode()
-            _, oss_url = upload_file_to_oss(response_text, file_name_md5, prefix=self.oss_prefix)
-
-            if _:
-                self.file_name_md5_list.append(file_name_md5)
+            upload_file_to_oss_async(response_text, file_name_md5, prefix=self.oss_prefix)
+            oss_url = self.oss_baseurl + '/' + self.oss_prefix + '/' + datetime.date.today().strftime('%Y-%m-%d') + '/' + file_name_md5
+            self.file_name_md5_list.append(file_name_md5)
         else:
             oss_url = self.oss_baseurl + '/' + self.oss_prefix + '/' + datetime.date.today().strftime('%Y-%m-%d') + '/' + file_name_md5
         return oss_url

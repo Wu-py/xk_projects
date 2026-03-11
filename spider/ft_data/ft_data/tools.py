@@ -1,5 +1,6 @@
 import base64
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
@@ -36,6 +37,7 @@ def get_filename_from_url(url):
 
 
 _upload_session: requests.Session | None = None
+_upload_executor: ThreadPoolExecutor | None = None
 
 
 def _get_upload_session() -> requests.Session:
@@ -47,7 +49,18 @@ def _get_upload_session() -> requests.Session:
     return _upload_session
 
 
-def upload_file_to_oss(content, file_name, prefix="crawler", max_retries: int = 3, retry_delay: float = 2.0):
+def _get_upload_executor() -> ThreadPoolExecutor:
+    """
+    后台上传使用的线程池，避免阻塞 Scrapy 的 reactor 线程。
+    """
+    global _upload_executor
+    if _upload_executor is None:
+        # 根据你的并发情况可以适当调大 / 调小
+        _upload_executor = ThreadPoolExecutor(max_workers=16)
+    return _upload_executor
+
+
+def upload_file_to_oss(content, file_name, prefix="crawler", max_retries: int = 5, retry_delay: float = 2.0):
     payload = {"filename": file_name, "content": content, "prefix": prefix}
     headers = {"content-type": "application/json"}
     url = "https://h5.mythinkcar.com/fcrm-api/third_service/upload-file-by-crawler"
@@ -57,7 +70,7 @@ def upload_file_to_oss(content, file_name, prefix="crawler", max_retries: int = 
     last_error = None
     for attempt in range(1, max_retries + 1):
         try:
-            resp = session.post(url, json=payload, headers=headers, timeout=60)
+            resp = session.post(url, json=payload, headers=headers, timeout=30)
             data = resp.json()
 
             if data.get("code") == 0:
@@ -76,6 +89,17 @@ def upload_file_to_oss(content, file_name, prefix="crawler", max_retries: int = 
 
     print("上传最终失败：", last_error)
     return False, None
+
+
+def upload_file_to_oss_async(content, file_name, prefix="crawler", max_retries: int = 3, retry_delay: float = 2.0):
+    """
+    异步（后台线程）上传文件到 OSS，不阻塞调用方。
+
+    返回值为 concurrent.futures.Future；如果你不关心结果，可以直接忽略。
+    """
+    executor = _get_upload_executor()
+    # 把同步上传任务丢到线程池里执行
+    return executor.submit(upload_file_to_oss, content, file_name, prefix, max_retries, retry_delay)
 
 def get_response_encodeing(response):
     results = from_bytes(response.content)
@@ -101,9 +125,11 @@ if __name__ == '__main__':
     encding = get_response_encodeing(r)
     # print(content)
     print(r.encoding)
-    upload_file_to_oss(r.content.decode(encding), "test.css")
+    upload_file_to_oss_async(r.content.decode(encding), "test.css")
+    upload_file_to_oss_async(r.content.decode(encding), "test.css")
+
     #
-    r = requests.get('https://xingka-car-data.oss-cn-shenzhen.aliyuncs.com/crawler/2026-03-10/test.css')
-    print(r.encoding)
-    print(r.headers)
+    # r = requests.get('https://xingka-car-data.oss-cn-shenzhen.aliyuncs.com/crawler/2026-03-10/test.css')
+    # print(r.encoding)
+    # print(r.headers)
     # print(r.content.decode('ISO-8859-1'))
