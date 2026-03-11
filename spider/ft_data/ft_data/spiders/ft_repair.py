@@ -12,7 +12,7 @@ import requests
 import scrapy
 from lxml import etree
 from spider.ft_data.ft_data.items import FtDataRepairListItem, FtDataRepairDetailItem
-from spider.ft_data.ft_data.tools import upload_file_to_oss, get_filename_from_url
+from spider.ft_data.ft_data.tools import upload_file_to_oss, get_filename_from_url, upload_file_to_oss_async
 
 
 class FtDataSpider(scrapy.Spider):
@@ -218,24 +218,15 @@ class FtDataSpider(scrapy.Spider):
         else:
             file_name_md5 = hashlib.md5(('ft' + self.directory + file_name).encode('utf-8')).hexdigest() + suffix
         if file_name_md5 not in self.file_name_md5_list:
-            print(absolute_url)
             file_response = requests.get(absolute_url)
-            if suffix in ['.svg', '.js', '.css']:
-                response_text = file_response.content.decode(self.get_response_encodeing(file_response))
-            else:
-                response_text = base64.b64encode(file_response.content).decode()
-            _, oss_url = upload_file_to_oss(response_text, file_name_md5, prefix=self.oss_prefix)
-
-            if _:
-                self.file_name_md5_list.append(file_name_md5)
+            response_text = base64.b64encode(file_response.content).decode()
+            upload_file_to_oss_async(response_text, file_name_md5, prefix=self.oss_prefix)
+            oss_url = self.oss_baseurl + '/' + self.oss_prefix + '/' + datetime.date.today().strftime('%Y-%m-%d') + '/' + file_name_md5
+            self.file_name_md5_list.append(file_name_md5)
         else:
             oss_url = self.oss_baseurl + '/' + self.oss_prefix + '/' + datetime.date.today().strftime('%Y-%m-%d') + '/' + file_name_md5
         return oss_url
 
-    def get_response_encodeing(self, response):
-        results = from_bytes(response.content)
-        if results.best():
-            return results.best().encoding
 
 if __name__ == '__main__':
     response = requests.get('http://localhost:8000/manual/repair/contents/RM1000000003GIQ.html')

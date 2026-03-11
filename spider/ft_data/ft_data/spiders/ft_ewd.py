@@ -368,10 +368,6 @@ class FtDataSpider(scrapy.Spider):
             oss_url = self.oss_baseurl + '/' + self.oss_prefix + '/' + datetime.date.today().strftime('%Y-%m-%d') + '/' + file_name_md5
         return oss_url
 
-    def get_response_encodeing(self, response):
-        results = from_bytes(response.content)
-        if results.best():
-            return results.best().encoding
 
     def get_file_id_url(self, type):
         if not self.file_id_url[type]:

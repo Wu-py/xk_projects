@@ -44,6 +44,12 @@ def _get_upload_session() -> requests.Session:
     global _upload_session
     if _upload_session is None:
         session = requests.Session()
+        adapter = requests.adapters.HTTPAdapter(
+            pool_connections=10,   # 与 host 数相关，一般保持默认即可
+            pool_maxsize=20        # 每个 host 最多保留的连接数，建议 >= 16
+        )
+        session.mount('https://', adapter)
+        session.mount('http://', adapter)
         session.headers.update({"Connection": "keep-alive"})
         _upload_session = session
     return _upload_session
@@ -121,12 +127,14 @@ if __name__ == '__main__':
     #     # 得解码
     #     f.write(base64.b64decode(r.content))
 
-    r = requests.get('http://localhost:8000/system/css/global.css')
-    encding = get_response_encodeing(r)
-    # print(content)
-    print(r.encoding)
-    upload_file_to_oss_async(r.content.decode(encding), "test.css")
-    upload_file_to_oss_async(r.content.decode(encding), "test.css")
+    # r = requests.get('http://127.0.0.1:8000/manual/ewd/contents/connector/figsvg/G926A-47010.svg')
+    r = requests.get('http://127.0.0.1:8000/manual/ewd/contents/connector/figsvg/G926A-47010.svg')
+    content = base64.b64encode(r.content).decode()
+    upload_file_to_oss(content, "test.svg")
+    # upload_file_to_oss_async(r.content.decode(encding), "test.css")
+    #
+    # r2 = requests.get('https://xingka-car-data.oss-cn-shenzhen.aliyuncs.com/crawler/2026-03-11/test.svg')
+    # print(r2.text)
 
     #
     # r = requests.get('https://xingka-car-data.oss-cn-shenzhen.aliyuncs.com/crawler/2026-03-10/test.css')
