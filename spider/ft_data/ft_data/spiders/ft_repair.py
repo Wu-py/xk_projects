@@ -3,6 +3,7 @@ import copy
 import datetime
 import hashlib
 import re
+import time
 import urllib
 from copy import deepcopy
 from urllib.parse import urljoin
@@ -19,7 +20,7 @@ class FtDataSpider(scrapy.Spider):
     name = "ft_repair"
     table_name = "ft_repair"
     type = '维修手册'
-    file_name_md5_list = []
+    file_name_dict = {}
     oss_prefix = 'cl_ft'
     oss_baseurl = 'https://xingka-car-data.oss-cn-shenzhen.aliyuncs.com'
     headers = {
@@ -213,32 +214,44 @@ class FtDataSpider(scrapy.Spider):
         absolute_url = url
 
         file_name, suffix = get_filename_from_url(absolute_url)
-        if suffix in ['.js', '.css']:
-            file_name_md5 = hashlib.md5(('ft' + file_name).encode('utf-8')).hexdigest() + suffix
-        else:
-            file_name_md5 = hashlib.md5(('ft' + self.directory + file_name).encode('utf-8')).hexdigest() + suffix
-        if file_name_md5 not in self.file_name_md5_list:
+        if file_name not in self.file_name_dict:
             file_response = requests.get(absolute_url)
+            file_name_md5_suffix = hashlib.md5(file_response.content).hexdigest() + suffix
             response_text = base64.b64encode(file_response.content).decode()
-            upload_file_to_oss_async(response_text, file_name_md5, prefix=self.oss_prefix)
-            oss_url = self.oss_baseurl + '/' + self.oss_prefix + '/' + datetime.date.today().strftime('%Y-%m-%d') + '/' + file_name_md5
-            self.file_name_md5_list.append(file_name_md5)
+            upload_file_to_oss_async(response_text, file_name_md5_suffix, prefix=self.oss_prefix)
+            oss_url = self.oss_baseurl + '/' + self.oss_prefix + '/' + datetime.date.today().strftime('%Y-%m-%d') + '/' + file_name_md5_suffix
+            self.file_name_dict.update({file_name: oss_url})
         else:
-            oss_url = self.oss_baseurl + '/' + self.oss_prefix + '/' + datetime.date.today().strftime('%Y-%m-%d') + '/' + file_name_md5
+            oss_url = self.file_name_dict[file_name]
         return oss_url
 
 
 if __name__ == '__main__':
-    response = requests.get('http://localhost:8000/manual/repair/contents/RM1000000003GIQ.html')
+    # response = requests.get('http://localhost:8000/manual/repair/contents/RM1000000003GIQ.html')
+    #
+    # parser = etree.HTMLParser()
+    # tree = etree.fromstring(response.content, parser)
+    # FtDataSpider = FtDataSpider()
+    # FtDataSpider.absolutize_urls(tree, response.url, 'RM1000000003GIQ')
+    # tree2 = copy.deepcopy(tree)
+    # new_html = etree.tostring(tree, encoding='unicode', method='html')
+    # # new_html = etree.tostring(tree2, encoding='unicode', method='html')
+    # print(new_html)
 
-    parser = etree.HTMLParser()
-    tree = etree.fromstring(response.content, parser)
-    FtDataSpider = FtDataSpider()
-    FtDataSpider.absolutize_urls(tree, response.url, 'RM1000000003GIQ')
-    tree2 = copy.deepcopy(tree)
-    new_html = etree.tostring(tree, encoding='unicode', method='html')
-    # new_html = etree.tostring(tree2, encoding='unicode', method='html')
-    print(new_html)
+
+
+    t1 = time.time()
+    r = requests.get('https://xingka-car-data.oss-cn-shenzhen.aliyuncs.com/cl_ft/2026-03-11/15bce3effa5005f8dbf1da36e3112837.svg')
+
+    print(t1)
+    t = hashlib.md5(r.content).hexdigest()
+    print(t)
+    t2 = time.time()
+    print(t2)
+    print(t2 - t1)
+
+
+
 
 
 

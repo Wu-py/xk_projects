@@ -23,7 +23,7 @@ class FtDataSpider(scrapy.Spider):
     type = '电路图'
     resource_base_url = 'http://127.0.0.1:8000/manual/ewd/'
     file_id_url = defaultdict(dict)
-    file_name_md5_list = []
+    file_name_dict = []
     oss_prefix = 'cl_ft'
     oss_baseurl = 'https://xingka-car-data.oss-cn-shenzhen.aliyuncs.com'
     headers = {
@@ -354,18 +354,15 @@ class FtDataSpider(scrapy.Spider):
         absolute_url = url
 
         file_name, suffix = get_filename_from_url(absolute_url)
-        if suffix in ['.js', '.css']:
-            file_name_md5 = hashlib.md5(('ft' + file_name).encode('utf-8')).hexdigest() + suffix
-        else:
-            file_name_md5 = hashlib.md5(('ft' + self.directory + file_name).encode('utf-8')).hexdigest() + suffix
-        if file_name_md5 not in self.file_name_md5_list:
+        if file_name not in self.file_name_dict:
             file_response = requests.get(absolute_url)
+            file_name_md5_suffix = hashlib.md5(file_response.content).hexdigest() + suffix
             response_text = base64.b64encode(file_response.content).decode()
-            upload_file_to_oss_async(response_text, file_name_md5, prefix=self.oss_prefix)
-            oss_url = self.oss_baseurl + '/' + self.oss_prefix + '/' + datetime.date.today().strftime('%Y-%m-%d') + '/' + file_name_md5
-            self.file_name_md5_list.append(file_name_md5)
+            upload_file_to_oss_async(response_text, file_name_md5_suffix, prefix=self.oss_prefix)
+            oss_url = self.oss_baseurl + '/' + self.oss_prefix + '/' + datetime.date.today().strftime('%Y-%m-%d') + '/' + file_name_md5_suffix
+            self.file_name_dict.update({file_name: oss_url})
         else:
-            oss_url = self.oss_baseurl + '/' + self.oss_prefix + '/' + datetime.date.today().strftime('%Y-%m-%d') + '/' + file_name_md5
+            oss_url = self.file_name_dict[file_name]
         return oss_url
 
 
